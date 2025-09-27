@@ -4,11 +4,14 @@ import AppConfig from 'configs/app.config';
 import * as bodyParser from 'body-parser';
 import { setupSwaggerRegisteration } from './utilities/swaggerRegisteration';
 import { ValidationPipe } from '@nestjs/common';
-import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import { Logger } from 'nestjs-pino';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+  });
   if (AppConfig().environment !== 'production') {
     setupSwaggerRegisteration(app);
   }
@@ -20,6 +23,8 @@ async function bootstrap() {
       forbidUnknownValues: true,
     }),
   );
+  const logger = app.get(Logger);
+  app.useLogger(logger);
   app.use(bodyParser.json({ limit: '5000mb' }));
   app.use(bodyParser.urlencoded({ limit: '5000mb', extended: true }));
   app.use(helmet());
