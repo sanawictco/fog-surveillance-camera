@@ -6,7 +6,7 @@ export class SerializerService implements SerializerBase {
     return JSON.stringify(value);
   }
 
-  deserialize(value: string) {
+  deserialize(value: string): unknown {
     return JSON.parse(value);
   }
 }

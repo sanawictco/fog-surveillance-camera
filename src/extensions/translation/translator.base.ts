@@ -1,4 +1,3 @@
-import { LanguageCode } from './languageCode.enum';
 import { LanguageKeysBase } from './languageKeys.base';
 
 export enum DictionarySections {
@@ -9,13 +8,8 @@ export enum DictionarySections {
 
 export interface TranslatorBase {
   prepareDictionaryFormatForEachSection(
-    lang: LanguageCode,
     section: DictionarySections,
-  );
-  translateByName(name: keyof LanguageKeysBase, lang: LanguageCode): string;
-  translateByPattern(
-    pattern: string,
-    params: unknown[],
-    lang?: LanguageCode,
-  ): string;
+  ): Partial<LanguageKeysBase>;
+  translateByName(name: keyof LanguageKeysBase): string;
+  translateByPattern(pattern: string, params: unknown[]): string;
 }

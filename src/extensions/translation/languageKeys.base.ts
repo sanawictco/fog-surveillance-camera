@@ -1,6 +1,81 @@
-export type LanguageKeysBase = OtherLanguageKeys;
+import { PageLanguageKeys } from 'src/modules/dashboard/domain/page.type';
+import { CameraLanguageKeys } from 'src/modules/videoDevices/domain/camera/camera.type';
+import { NvrLanguageKeys } from 'src/modules/videoDevices/domain/nvr/nvr.type';
+
+export type LanguageKeysBase = OtherLanguageKeys &
+  PageLanguageKeys &
+  NvrLanguageKeys &
+  CameraLanguageKeys;
 
 export const LanguageKeys: LanguageKeysBase = {
+  nvr: {
+    actorLog: {
+      nameUpdated: 'nvr.actorLog.nameUpdated',
+      passwordUpdated: 'nvr.actorLog.passwordUpdated',
+      langUpdated: {
+        toFa: 'nvr.actorLog.langUpdated.toFa',
+        toEn: 'nvr.actorLog.langUpdated.toEn',
+        toAr: 'nvr.actorLog.langUpdated.toAr',
+        toKu: 'nvr.actorLog.langUpdated.toKu',
+      },
+    },
+    response: {
+      socket: {
+        updated: 'nvr.response.socket.updated',
+      },
+    },
+    errorResponse: {
+      badRequest: {
+        nameIsDuplicated: 'nvr.errorResponse.badRequest.nameIsDuplicated',
+      },
+    },
+  },
+  camera: {
+    actorLog: {
+      activated: 'string',
+      inactivated: 'string',
+      nameUpdated: 'string',
+    },
+    systemLog: {
+      disconnected: 'string',
+    },
+    response: {
+      socket: {
+        updated: 'string',
+      },
+    },
+    errorResponse: {
+      badRequest: {
+        nameIsDuplicated: 'string',
+      },
+    },
+  },
+  dashboard: {
+    actorLog: {
+      created: 'dashboard.actorLog.created',
+      deleted: 'dashboard.actorLog.deleted',
+      nameUpdated: 'dashboard.actorLog.nameUpdated',
+      contentUpdated: 'dashboard.actorLog.contentUpdated',
+      pageIndexUpdated: 'dashboard.actorLog.pageIndexUpdated',
+    },
+    response: {
+      http: {
+        created: 'dashboard.response.http.created',
+        updated: 'dashboard.response.http.updated',
+      },
+      socket: {
+        created: 'dashboard.response.socket.created',
+        updated: 'dashboard.response.socket.updated',
+        deleted: 'dashboard.response.socket.deleted',
+      },
+    },
+    errorResponse: {
+      badRequest: {
+        notExists: 'dashboard.errorResponse.badRequest.notExists',
+        nameIsDuplicated: 'dashboard.errorResponse.badRequest.nameIsDuplicated',
+      },
+    },
+  },
   others: {
     erroResponse: {
       badRequest: {

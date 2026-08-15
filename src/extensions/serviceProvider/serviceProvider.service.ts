@@ -11,10 +11,9 @@ import { SchedulerService } from '../scheduler/scheduler.service';
 export class ServiceProvider {
   constructor(
     readonly serializer: SerializerService,
-    readonly userInfoService: UserInfoService,
     readonly logger: LoggerService,
-    ////////////////////////////////////////
     readonly eventEmitter: EventEmitter2,
+    readonly userInfoService: UserInfoService,
     readonly commandBus: CommandBus,
     readonly queryBus: QueryBus,
     readonly translatorService: TranslatorService,

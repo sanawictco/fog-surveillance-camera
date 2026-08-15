@@ -1,0 +1,1 @@
+export const SYSTEM_LOG_REPOSITORY = Symbol('SYSTEM_LOG_REPOSITORY');

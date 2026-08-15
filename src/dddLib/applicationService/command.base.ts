@@ -2,6 +2,7 @@ import { v4 } from 'uuid';
 import { ArgumentNotProvidedException } from '../core/exceptions';
 import { RequestContextService } from '../utils/appRequestContext';
 import { Guard } from '../utils/guard';
+import { ActorDto } from 'src/modules/shared/dtos/actor.dto';
 export type IdType = { id: string };
 export type CommandProps<T> = Omit<T, 'id' | 'metadata'> & Partial<Command>;
 
@@ -36,12 +37,14 @@ export class Command {
 
   readonly metadata: CommandMetadata;
 
+  readonly actorProps?: ActorDto;
   constructor(props: CommandProps<unknown>) {
     if (Guard.isEmpty(props)) {
       throw new ArgumentNotProvidedException(
         'Command props should not be empty',
       );
     }
+    this.actorProps = props.actorProps;
     const requestId = RequestContextService.getRequestId();
     this.id = props.id || v4();
     this.metadata = {

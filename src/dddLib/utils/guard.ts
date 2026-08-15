@@ -95,8 +95,30 @@ export class Guard {
     return this.isBetween(value, 0, 65535) && value % 1 === 0;
   }
 
-  static isColorCode(colorCode) {
+  static isColorCode(colorCode: string): boolean {
     const hexColorPattern = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
     return hexColorPattern.test(colorCode);
+  }
+
+  static isMacAddress(macAddress: string) {
+    if (!macAddress || typeof macAddress !== 'string') {
+      return false;
+    }
+    const cleanMac = macAddress.trim().toUpperCase();
+    const patterns = [
+      // Colon-separated: 00:1B:44:11:3A:B7
+      /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/,
+      // Hyphen-separated: 00-1B-44-11-3A-B7
+      /^([0-9A-F]{2}-){5}[0-9A-F]{2}$/,
+      // Dot-separated (Cisco format): 001B.4411.3AB7
+      /^[0-9A-F]{4}\.[0-9A-F]{4}\.[0-9A-F]{4}$/,
+      // No separators: 001B44113AB7
+      /^[0-9A-F]{12}$/,
+    ];
+    return patterns.some((pattern) => pattern.test(cleanMac));
+  }
+
+  static isPort(value: number) {
+    return this.isBetween(value, 100, 655354) && value % 1 === 0;
   }
 }

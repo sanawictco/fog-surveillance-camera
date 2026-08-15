@@ -1,0 +1,1 @@
+export const ACTOR_LOG_REPOSITORY = Symbol('ACTOR_LOG_REPOSITORY');

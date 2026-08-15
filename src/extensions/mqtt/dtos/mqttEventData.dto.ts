@@ -1,4 +1,4 @@
-export class MqttEventDataDto {
-  topic: string;
-  message: string;
+export interface MqttEventDataDto {
+  readonly topic: string;
+  readonly message: string;
 }

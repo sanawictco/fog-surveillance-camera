@@ -66,7 +66,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
   }
 
-  private async handleHttpException(exception: any, host: ArgumentsHost) {
+  private async handleHttpException(
+    exception: any,
+    host: ArgumentsHost,
+  ): Promise<void> {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
@@ -106,7 +109,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             : [errorRes.message],
           correlationId: RequestContextService.getRequestId(),
         });
-        return response.status(400).json(exception);
+        response.status(400).json(exception);
+        return;
       }
     }
 

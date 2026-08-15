@@ -1,7 +1,8 @@
+import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import AppConfig from 'configs/app.config';
 export const SWAGGER_AUTH_TOKEN = 'authorization';
-export const setupSwaggerRegisteration = (app) => {
+export const setupSwaggerRegisteration = (app: INestApplication): void => {
   if (AppConfig().environment !== 'production') {
     const config = new DocumentBuilder()
       .setTitle(AppConfig().swagger.title)

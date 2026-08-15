@@ -12,7 +12,7 @@ export class UserInfoService {
     const ctx: any = RequestContextService.getContext();
     return ctx?.user;
   }
-  getGatewayAsActorProps(): UserInfoDto {
+  getNvrAsActorProps(): UserInfoDto {
     return structuredClone({
       id: '00000000-0000-0000-0000-000000000000',
       name: 'sanaw-gateway-user',

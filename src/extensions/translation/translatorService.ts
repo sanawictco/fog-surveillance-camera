@@ -1,106 +1,100 @@
-import {
-  BadRequestException,
-  forwardRef,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
-import { LanguageCode } from './languageCode.enum';
-import { DictionarySections, TranslatorBase } from './translator.base';
+import { Injectable } from '@nestjs/common';
 import { StringExtensions } from 'src/dddLib/utils/stringExtensions';
+import { LanguageCode } from './languageCode.enum';
+import { LanguageKeysBase } from './languageKeys.base';
+import { arabicValues } from './languages/arabicValues';
 import { englishValues } from './languages/englishValues';
 import { farsiValues } from './languages/farsiValues';
-import { arabicValues } from './languages/arabicValues';
-import { ServiceProvider } from '../serviceProvider/serviceProvider.service';
-import { LanguageKeysBase } from './languageKeys.base';
 import { kurdiValues } from './languages/kurdiValues';
+import { DictionarySections, TranslatorBase } from './translator.base';
 
 @Injectable()
 export class TranslatorService implements TranslatorBase {
-  constructor() {}
+  private static lang: LanguageCode = LanguageCode.FA;
+
+  static get LANG(): LanguageCode {
+    return this.lang;
+  }
+
+  static set LANG(value: LanguageCode) {
+    this.lang = value;
+  }
 
   prepareDictionaryFormatForEachSection(
-    lang: LanguageCode,
     section: DictionarySections,
-  ) {
-    let dictionary: Partial<LanguageKeysBase>;
-    if (lang === LanguageCode.FA) {
-      dictionary = structuredClone(farsiValues);
-    } else if (lang === LanguageCode.EN) {
-      dictionary = structuredClone(englishValues);
-    } else if (lang === LanguageCode.AR) {
-      dictionary = structuredClone(arabicValues);
-    } else if (lang === LanguageCode.KU) {
-      dictionary = structuredClone(kurdiValues);
-    } else {
-      throw new BadRequestException('not supported');
-    }
+  ): Partial<LanguageKeysBase> {
+    const dictionary: Partial<LanguageKeysBase> = structuredClone(
+      this.getLanguageDictionary(),
+    );
 
-    for (const key in dictionary) {
-      for (const innerKey in dictionary[key]) {
-        if (innerKey !== section) delete dictionary[key][innerKey];
+    for (const key of Object.keys(dictionary) as Array<
+      keyof LanguageKeysBase
+    >) {
+      if (key === 'others') {
+        delete dictionary[key];
+        continue;
       }
-      if (Object.keys(dictionary[key]).length === 0) delete dictionary[key];
+      const innerDictionary = dictionary[key] as
+        Record<string, unknown> | undefined;
+      if (!innerDictionary) continue;
+      for (const innerKey of Object.keys(innerDictionary)) {
+        if (innerKey !== section) delete innerDictionary[innerKey];
+      }
+      if (Object.keys(innerDictionary).length === 0) delete dictionary[key];
     }
-    // delete dictionary.exposedApi;
-    // delete dictionary.others;
     return dictionary;
   }
 
-  translateByName(
-    keychain: string,
-    lang: LanguageCode = LanguageCode.FA,
-  ): string {
-    switch (lang) {
-      case LanguageCode.EN:
-        return getObjectPropertyByStringKeyChain(englishValues, keychain);
-      case LanguageCode.FA:
-        return getObjectPropertyByStringKeyChain(farsiValues, keychain);
-      case LanguageCode.AR:
-        return getObjectPropertyByStringKeyChain(arabicValues, keychain);
-      case LanguageCode.KU:
-        return getObjectPropertyByStringKeyChain(kurdiValues, keychain);
-      default:
-        return 'not supported language';
-    }
+  translateByName(keychain: string): string {
+    return getObjectPropertyByStringKeyChain(
+      this.getLanguageDictionary(),
+      keychain,
+    );
   }
 
-  translateByPattern(
-    keychain: string,
-    params: unknown[],
-    lang: LanguageCode = LanguageCode.EN,
-  ): string {
-    switch (lang) {
-      case LanguageCode.EN:
-        return StringExtensions.formatWithParams(
-          getObjectPropertyByStringKeyChain(englishValues, keychain),
-          params,
-        );
-      case LanguageCode.FA:
-        return StringExtensions.formatWithParams(
-          getObjectPropertyByStringKeyChain(farsiValues, keychain),
-          params,
-        );
-      case LanguageCode.AR:
-        return StringExtensions.formatWithParams(
-          getObjectPropertyByStringKeyChain(arabicValues, keychain),
-          params,
-        );
-      case LanguageCode.KU:
-        return StringExtensions.formatWithParams(
-          getObjectPropertyByStringKeyChain(kurdiValues, keychain),
-          params,
-        );
-      default:
-        return 'not supported language';
+  translateByPattern(keychain: string, params: unknown[]): string {
+    return StringExtensions.formatWithParams(
+      getObjectPropertyByStringKeyChain(this.getLanguageDictionary(), keychain),
+      params,
+    );
+  }
+
+  private getLanguageDictionary(): LanguageKeysBase {
+    const dictionaries: Record<LanguageCode, LanguageKeysBase> = {
+      [LanguageCode.FA]: farsiValues,
+      [LanguageCode.EN]: englishValues,
+      [LanguageCode.AR]: arabicValues,
+      [LanguageCode.KU]: kurdiValues,
+    };
+    const dictionary = dictionaries[TranslatorService.LANG];
+    if (!dictionary) {
+      throw new Error(
+        `Language code '${TranslatorService.LANG}' is not supported`,
+      );
     }
+    return dictionary;
   }
 }
 
-const getObjectPropertyByStringKeyChain = (object, keychain) => {
-  if (!keychain) return;
+function getObjectPropertyByStringKeyChain(
+  object: LanguageKeysBase,
+  keychain: string,
+): string {
+  if (!keychain) throw new Error('Translation keychain cannot be empty');
   try {
-    return keychain.split('.').reduce((p, prop) => p[prop], object);
-  } catch (e) {
-    console.log('>>>>>>>>', keychain, e);
+    const value = keychain.split('.').reduce<unknown>((parent, property) => {
+      if (typeof parent !== 'object' || parent === null) {
+        throw new Error(`Property '${property}' does not exist`);
+      }
+      return (parent as Record<string, unknown>)[property];
+    }, object);
+    if (typeof value !== 'string') {
+      throw new Error('Translation value is not a string');
+    }
+    return value;
+  } catch (err) {
+    throw new Error(`Translation keychain "${keychain}" is not valid`, {
+      cause: err,
+    });
   }
-};
+}

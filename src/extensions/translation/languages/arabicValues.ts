@@ -1,6 +1,74 @@
 import { LanguageKeysBase } from '../languageKeys.base';
 
 export const arabicValues: LanguageKeysBase = {
+  nvr: {
+    actorLog: {
+      nameUpdated: 'تم تغيير اسم جهاز NVR من {0} إلى {2} (الرقم التسلسلي {1})',
+      passwordUpdated: 'تم تغيير كلمة مرور جهاز NVR {0} (الرقم التسلسلي {1})',
+      langUpdated: {
+        toFa: 'تم تغيير لغة جهاز NVR {0} (الرقم التسلسلي {1}) إلى الفارسية',
+        toEn: 'تم تغيير لغة جهاز NVR {0} (الرقم التسلسلي {1}) إلى الإنجليزية',
+        toAr: 'تم تغيير لغة جهاز NVR {0} (الرقم التسلسلي {1}) إلى العربية',
+        toKu: 'تم تغيير لغة جهاز NVR {0} (الرقم التسلسلي {1}) إلى الكردية',
+      },
+    },
+    response: {
+      socket: {
+        updated: 'تم تحديث جهاز NVR',
+      },
+    },
+    errorResponse: {
+      badRequest: {
+        nameIsDuplicated: 'اسم جهاز NVR مكرر',
+      },
+    },
+  },
+  camera: {
+    actorLog: {
+      nameUpdated: 'تم تغيير اسم الكاميرا من {0} إلى {1}',
+      activated: 'تم تفعيل الكاميرا {0}',
+      inactivated: 'تم تعطيل الكاميرا {0}',
+    },
+    systemLog: {
+      disconnected: 'أصبحت الكاميرا {0} غير متاحة',
+    },
+    response: {
+      socket: {
+        updated: 'تم تحديث الكاميرا',
+      },
+    },
+    errorResponse: {
+      badRequest: {
+        nameIsDuplicated: 'اسم الكاميرا مكرر',
+      },
+    },
+  },
+  dashboard: {
+    actorLog: {
+      created: 'تم إنشاء صفحة باسم {0}',
+      deleted: 'تم حذف صفحة باسم {0}',
+      nameUpdated: 'تم تغيير اسم الصفحة من {0} إلى {1}',
+      contentUpdated: 'تم تحديث محتوى الصفحة المسماة {1}',
+      pageIndexUpdated: 'تم تحديث ترتيب الصفحة المسماة {0}',
+    },
+    response: {
+      http: {
+        created: 'تم إنشاء الصفحة',
+        updated: 'تم تحديث الصفحة',
+      },
+      socket: {
+        created: 'تم إنشاء الصفحة',
+        updated: 'تم تحديث الصفحة',
+        deleted: 'تم حذف الصفحة',
+      },
+    },
+    errorResponse: {
+      badRequest: {
+        notExists: 'لا توجد صفحة بهذا المعرف',
+        nameIsDuplicated: 'اسم الصفحة مكرر',
+      },
+    },
+  },
   others: {
     erroResponse: {
       badRequest: {

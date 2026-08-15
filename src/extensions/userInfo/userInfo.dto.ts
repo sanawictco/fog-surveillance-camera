@@ -1,7 +1,6 @@
-export class UserInfoDto {
-  id: string;
-  name: string;
-  // phoneNumber: string;
-  // roles: EmployeeRoles[];
-  // lang: LanguageCode;
+import { AggregateID } from 'src/dddLib/core';
+
+export interface UserInfoDto {
+  readonly id: AggregateID;
+  readonly name: string;
 }
