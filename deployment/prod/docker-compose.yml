@@ -1,0 +1,41 @@
+services:
+  fog-surveillance-camera:
+    build:
+      context: ../..
+      dockerfile: deployment/prod/Dockerfile
+    image: sanaw/fog-surveillance-camera:local
+    restart: unless-stopped
+    network_mode: host
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_RAW
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    volumes:
+      - /fog_shared_backups:/fog_shared_backups
+    env_file:
+      - ../../.env.production
+    environment:
+      NVR_ACCESS_TOKEN_FILE: /run/secrets/nvr_access_token
+      JWT_SECRET_KEY_FILE: /run/secrets/jwt_secret_key
+      TIME_SERIES_DB_PASSWORD_FILE: /run/secrets/tdengine_password
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+    secrets:
+      - nvr_access_token
+      - jwt_secret_key
+      - tdengine_password
+      - redis_password
+
+secrets:
+  nvr_access_token:
+    file: ./secrets/nvr_access_token
+  jwt_secret_key:
+    file: ./secrets/jwt_secret_key
+  tdengine_password:
+    file: ./secrets/tdengine_password
+  redis_password:
+    file: ./secrets/redis_password

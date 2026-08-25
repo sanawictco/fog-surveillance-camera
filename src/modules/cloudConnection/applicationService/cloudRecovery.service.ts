@@ -1,334 +1,154 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import axios from 'axios';
+import FormData from 'form-data';
+import { spawn } from 'node:child_process';
+import * as fs from 'node:fs';
+import { join } from 'node:path';
 import AppConfig from 'configs/app.config';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { GLOBAL_ERROR_EVENT } from 'src/utilities/exception.filter';
-import { CloudConnectionService } from './services/cloudConnection.service';
-import { ActorLogApiForCloudConnectionService } from 'src/modules/actorLogs/applicationService/services/actorLogApiForCloudConnectionservice';
-import { SystemLogApiForCloudConnectionService } from 'src/modules/systemLogs/applicationService/services/systemLogApiForCloudConnection.service';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
-import { UpdateNvrCommand } from 'src/modules/videoDevices/applicatonService/commands/nvr/updateNvr.command';
-import { CloudFailedAt } from 'src/modules/videoDevices/domain/nvr/valueObjects/cloudFailedAt.vo';
 import { MqttEventDataDto } from 'src/extensions/mqtt/dtos/mqttEventData.dto';
-import * as fs from 'node:fs';
-import Docker = require('dockerode');
-import FormData from 'form-data';
+import { CloudConnectionService } from './services/cloudConnection.service';
 
-const docker = new Docker();
+const BACKUP_ROOT = '/fog_shared_backups';
+const BACKUP_ARCHIVE = `${BACKUP_ROOT}/backups.tar.zst`;
+const MONGO_BACKUP_DIR = `${BACKUP_ROOT}/mongo`;
+const MONGO_BACKUP_SCRIPT =
+  process.env.FOG_MONGO_BACKUP_SCRIPT ??
+  join(process.cwd(), 'scripts', 'mongo-backup.sh');
+const RECOVERY_STEP_TIMEOUT_MS = 10 * 60 * 1000;
+
 @Injectable()
 export class CloudRecoveryService implements OnApplicationBootstrap {
   static RECOVERY_PROCESS_INITIALIZED = false;
-  constructor(
-    private readonly serviceProvider: ServiceProvider,
-    private readonly systemLogApiForCloudConnection: SystemLogApiForCloudConnectionService,
-    private readonly actorLogApiForCloudConnectionService: ActorLogApiForCloudConnectionService,
-  ) {}
-  onApplicationBootstrap() {
+
+  constructor(private readonly serviceProvider: ServiceProvider) {}
+
+  onApplicationBootstrap(): void {
     this.serviceProvider.eventEmitter.on(
       NvrEntity.getFogSubOnCloudMqttTopics().cloudRecoveryDataAck,
-      this.getCloudRecovertAck.bind(this),
+      this.getCloudRecoveryAck.bind(this),
     );
   }
-  async startCloudRecoveryProcess(nvrEntity: NvrEntity) {
+
+  async startCloudRecoveryProcess(_nvrEntity: NvrEntity): Promise<void> {
+    if (CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED) return;
+    CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED = true;
     try {
-      if (CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED) return;
-      CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED = true;
-      const cloudFailedAt: number = nvrEntity.getProps().cloudFailedAt;
       await this.cleanBackup();
       await this.createMongoBackup();
-      await this.createTdengineBackup(cloudFailedAt);
       await this.compressBackup();
       await this.uploadBackup();
-    } catch (err) {
-      console.log('error in startCloudRecoveryProcess', err);
+    } catch (error) {
       CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED = false;
-      this.serviceProvider.eventEmitter.emit(GLOBAL_ERROR_EVENT, err);
+      this.serviceProvider.logger.error('Fog cloud recovery failed', error);
     }
   }
 
-  async getCloudRecovertAck(_mqttMsg: MqttEventDataDto) {
+  async getCloudRecoveryAck(_mqttMsg: MqttEventDataDto): Promise<void> {
+    if (!CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED) return;
     try {
-      console.log('finish cloud recovery***********************');
-      await this.serviceProvider.commandBus.execute(
-        new UpdateNvrCommand({
-          id: AppConfig().nvrId,
-          cloudFailedAt: CloudFailedAt.init().unpack(),
-        }),
-      );
       CloudConnectionService.CLOUD_IS_AVAILABLE = true;
       CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED = false;
       await this.cleanBackup();
-      await this.actorLogApiForCloudConnectionService.clearData();
-      await this.systemLogApiForCloudConnection.clearData();
-    } catch (err) {
-      this.serviceProvider.eventEmitter.emit(GLOBAL_ERROR_EVENT, err);
-    }
-  }
-
-  private async createMongoBackup() {
-    try {
-      const backupPath = '/fog_shared_backups/mongo';
-      if (!fs.existsSync(backupPath))
-        fs.mkdirSync(backupPath, { recursive: true });
-      const backupScriptPath = '/fog_shared_backups/mongo-backup.sh';
-      const mongoContainerName = 'mongo-fog';
-      const containers = await docker.listContainers({ all: true });
-      const mongoContainerInfo = containers.find((c) =>
-        c.Names.includes(`/${mongoContainerName}`),
-      );
-
-      if (!mongoContainerInfo) {
-        throw new Error(`Container "${mongoContainerName}" not found`);
-      }
-
-      const mongoContainer = docker.getContainer(mongoContainerInfo.Id);
-
-      // Create the exec command for mongo and tdengine
-      const exec = await mongoContainer.exec({
-        Cmd: ['bash', backupScriptPath],
-        AttachStdout: true,
-        AttachStderr: true,
-      });
-
-      // Start the exec command and get the stream
-      const stream = await exec.start({ hijack: true, stdin: false });
-
-      // Handle output without blocking event loop
-      mongoContainer.modem.demuxStream(stream, process.stdout, process.stderr);
-
-      // Wait for completion
-      await new Promise((resolve, reject) => {
-        stream.on('end', () => resolve('completed'));
-        stream.on('error', reject);
-        setTimeout(
-          () => reject(new Error('Mongo backup timeout exceeded')),
-          60000,
-        ); // 1 minute timeout
-      });
-
-      // Check exit code
-      const inspect = await exec.inspect();
-      if (inspect.ExitCode !== 0) {
-        throw new Error(`mongo backup failed with code ${inspect.ExitCode}`);
-      }
-
-      return { success: true, message: 'mongo backup completed successfully' };
+      // TDengine is not imported by the Phase 0 cloud compatibility endpoint.
+      // Keep local actor/system logs and cloudFailedAt for the later signed,
+      // tenant-scoped TDengine import instead of acknowledging data not imported.
     } catch (error) {
-      CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED = false;
-      console.error('Error during mongo backup:', error);
-      throw error;
+      this.serviceProvider.eventEmitter.emit(GLOBAL_ERROR_EVENT, error);
     }
   }
 
-  private async createTdengineBackup(cloudFailedAtInUnix: number) {
-    try {
-      const backupPath = '/fog_shared_backups/tdengine';
-      if (!fs.existsSync(backupPath))
-        fs.mkdirSync(backupPath, { recursive: true });
-      const tdengineContainerName = 'tdengine-fog';
-      const containers = await docker.listContainers({ all: true });
-      const tdengineContainerInfo = containers.find((c) =>
-        c.Names.includes(`/${tdengineContainerName}`),
-      );
-
-      if (!tdengineContainerInfo) {
-        throw new Error(`Container "${tdengineContainerName}" not found`);
-      }
-
-      const tdengineContainer = docker.getContainer(tdengineContainerInfo.Id);
-
-      // Create the exec command for tdengine and tdengine
-      const exec = await tdengineContainer.exec({
-        Cmd: [
-          'taosdump',
-          '-D',
-          AppConfig().timeseriesDb.dbName,
-          '-o',
-          backupPath,
-          '-S',
-          `${cloudFailedAtInUnix}`,
-        ],
-        AttachStdout: true,
-        AttachStderr: true,
-      });
-
-      const stream = await exec.start({ hijack: true, stdin: false });
-
-      tdengineContainer.modem.demuxStream(
-        stream,
-        process.stdout,
-        process.stderr,
-      );
-
-      await new Promise((resolve, reject) => {
-        stream.on('end', () => resolve('completed'));
-        stream.on('error', reject);
-        setTimeout(
-          () => reject(new Error('Tdengine backup timeout exceeded')),
-          60000,
-        ); // 1 minute timeout
-      });
-
-      // Check exit code
-      const inspect = await exec.inspect();
-      if (inspect.ExitCode !== 0) {
-        throw new Error(`tdengine backup failed with code ${inspect.ExitCode}`);
-      }
-
-      return {
-        success: true,
-        message: 'tdengine backup completed successfully',
-      };
-    } catch (error) {
-      CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED = false;
-      console.error('Error during tdengine backup:', error);
-      throw error;
-    }
+  private async createMongoBackup(): Promise<void> {
+    await fs.promises.mkdir(MONGO_BACKUP_DIR, { recursive: true });
+    await this.runCommand('bash', [MONGO_BACKUP_SCRIPT], this.mongoBackupEnv());
   }
 
-  private async compressBackup() {
-    try {
-      const backupPath = '/fog_shared_backups';
-      const mongoContainerName = 'mongo-fog';
-      const containers = await docker.listContainers({ all: true });
-      const mongoContainerInfo = containers.find((c) =>
-        c.Names.includes(`/${mongoContainerName}`),
-      );
-
-      if (!mongoContainerInfo) {
-        throw new Error(`Container "${mongoContainerName}" not found`);
-      }
-
-      const mongoContainer = docker.getContainer(mongoContainerInfo.Id);
-
-      const exec = await mongoContainer.exec({
-        Cmd: [
-          'tar',
-          '-I',
-          'zstd -12',
-          '-cf',
-          `${backupPath}/backups.tar.zst`,
-          `${backupPath}/mongo`,
-          `${backupPath}/tdengine`,
-        ],
-        AttachStdout: true,
-        AttachStderr: true,
-      });
-
-      const stream = await exec.start({ hijack: true, stdin: false });
-
-      mongoContainer.modem.demuxStream(stream, process.stdout, process.stderr);
-
-      await new Promise((resolve, reject) => {
-        stream.on('end', () => resolve('completed'));
-        stream.on('error', reject);
-        setTimeout(
-          () => reject(new Error('Compress backups timeout exceeded')),
-          60000,
-        ); // 1 minute timeout
-      });
-
-      // Check exit code
-      const inspect = await exec.inspect();
-      if (inspect.ExitCode !== 0) {
-        throw new Error(
-          `backup files compression failed with code ${inspect.ExitCode}`,
-        );
-      }
-
-      return {
-        success: true,
-        message: 'backup files compression completed successfully',
-      };
-    } catch (error) {
-      CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED = false;
-      console.error('Error during backup files compression:', error);
-      throw error;
-    }
+  private mongoBackupEnv(): NodeJS.ProcessEnv {
+    return {
+      ...process.env,
+      MONGO_BACKUP_HOST: process.env.MONGO_DB_HOST,
+      MONGO_BACKUP_PORT: process.env.MONGO_DB_PORT,
+      MONGO_BACKUP_DB: process.env.MONGO_DB_NAME,
+      MONGO_BACKUP_USER: process.env.MONGO_DB_USERNAME ?? '',
+      MONGO_BACKUP_PASSWORD: process.env.MONGO_DB_PASSWORD ?? '',
+      MONGO_BACKUP_AUTHDB: process.env.MONGO_DB_AUTH_SOURCE ?? 'admin',
+      MONGO_BACKUP_DIR: MONGO_BACKUP_DIR,
+    };
   }
 
-  private async uploadBackup() {
-    try {
-      const backupPath = '/fog_shared_backups';
-      const data = new FormData();
-      data.append('file', fs.createReadStream(`${backupPath}/backups.tar.zst`));
-      data.append('accessToken', AppConfig().nvrAccessToken);
-      data.append('serialNumber', AppConfig().nvrSerialNumber);
-
-      const config = {
-        method: 'post',
-        maxBodyLength: Infinity,
-        url: `${AppConfig().cloudHttpUrl}/fog-communication-manager/restore-fog-backup-to-cloud`,
-        headers: {
-          ...data.getHeaders(),
-        },
-        data: data,
-      };
-
-      const response = await axios.request(config);
-      console.log(JSON.stringify(response.data));
-    } catch (err) {
-      CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED = false;
-      console.error('Error during backup upload:', err);
-      throw err;
-    }
+  private async compressBackup(): Promise<void> {
+    await this.runCommand('tar', [
+      '-I',
+      'zstd -12',
+      '-cf',
+      BACKUP_ARCHIVE,
+      '-C',
+      BACKUP_ROOT,
+      'mongo',
+    ]);
   }
 
-  private async cleanBackup(): Promise<
-    { success: boolean; message: string } | undefined
-  > {
-    try {
-      const backupPath = '/fog_shared_backups';
-      const mongoContainerName = 'mongo-fog';
-      const containers = await docker.listContainers({ all: true });
-      const mongoContainerInfo = containers.find((c) =>
-        c.Names.includes(`/${mongoContainerName}`),
+  private async uploadBackup(): Promise<void> {
+    const data = new FormData();
+    data.append('file', fs.createReadStream(BACKUP_ARCHIVE));
+    await axios.request({
+      method: 'post',
+      maxBodyLength: Infinity,
+      timeout: 0,
+      url: `${AppConfig().cloudHttpUrl}/fog-communication-manager/restore-fog-backup-to-cloud`,
+      headers: {
+        ...data.getHeaders(),
+        'X-Tenant-Id': AppConfig().tenantId,
+        'X-Nvr-Serial-Number': AppConfig().nvrSerialNumber,
+        'X-Nvr-Access-Token': AppConfig().nvrAccessToken,
+      },
+      data,
+    });
+  }
+
+  private async cleanBackup(): Promise<void> {
+    await Promise.all(
+      [MONGO_BACKUP_DIR, BACKUP_ARCHIVE].map((target) =>
+        fs.promises.rm(target, { recursive: true, force: true }),
+      ),
+    );
+  }
+
+  private runCommand(
+    command: string,
+    args: string[],
+    env: NodeJS.ProcessEnv = process.env,
+  ): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const child = spawn(command, args, {
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let stderr = '';
+      let settled = false;
+      const timeout = setTimeout(
+        () => child.kill('SIGKILL'),
+        RECOVERY_STEP_TIMEOUT_MS,
       );
-
-      if (!mongoContainerInfo) {
-        throw new Error(`Container "${mongoContainerName}" not found`);
-      }
-
-      const mongoContainer = docker.getContainer(mongoContainerInfo.Id);
-
-      const exec = await mongoContainer.exec({
-        Cmd: [
-          'rm',
-          '-rf',
-          `${backupPath}/mongo`,
-          `${backupPath}/tdengine`,
-          `${backupPath}/backups.tar.zst`,
-        ],
-        AttachStdout: true,
-        AttachStderr: true,
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+        if (stderr.length > 1024 * 1024) child.kill('SIGKILL');
       });
-
-      const stream = await exec.start({ hijack: true, stdin: false });
-
-      mongoContainer.modem.demuxStream(stream, process.stdout, process.stderr);
-
-      await new Promise<void>((resolve, reject) => {
-        stream.on('end', resolve);
-        stream.on('error', reject);
-        setTimeout(() => reject(new Error('Timeout exceeded')), 60000); // 1 minute timeout
+      child.on('error', (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        reject(error);
       });
-
-      // Check exit code
-      const inspect = await exec.inspect();
-      if (inspect.ExitCode !== 0) {
-        throw new Error(
-          `backup files cleaning failed with code ${inspect.ExitCode}`,
-        );
-      }
-
-      return {
-        success: true,
-        message: 'clean backup completed successfully',
-      };
-    } catch (err) {
-      CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED = false;
-      console.log(err);
-      return undefined;
-    }
+      child.on('close', (code) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        if (code === 0) resolve();
+        else reject(new Error(`${command} failed: ${stderr || `exit ${code}`}`));
+      });
+    });
   }
 }
