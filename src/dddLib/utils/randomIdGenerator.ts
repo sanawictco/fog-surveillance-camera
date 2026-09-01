@@ -4,7 +4,10 @@ export function generateRandomId(size: number) {
   return randomBytes(size).toString('hex');
 }
 
-export function generateRandomMsgId() {
-  const randomInt = randomBytes(2).readUInt16BE(0);
-  return `${randomInt}`;
+export function generateRandomMsgId(): string {
+  let msgId = 0;
+  while (msgId === 0) {
+    msgId = randomBytes(4).readUInt32BE(0);
+  }
+  return String(msgId);
 }

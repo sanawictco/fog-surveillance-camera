@@ -30,8 +30,8 @@ export class ActorLogRepository
     const { superTableName, subTableName, data } = params;
     const { superTableInsertFormat, subTableInsertFormat } =
       TimeSeriesDbExtension.getSuperTableAndSubTableInsertFormat(
-        superTableName,
-        subTableName,
+        superTableName!,
+        subTableName!,
       );
     if (
       !Guard.isUnix(data[0]) ||

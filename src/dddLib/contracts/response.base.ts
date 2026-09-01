@@ -1,7 +1,8 @@
+import { AggregateID } from '../core';
 import { IdResponse } from './id.response.dto';
 
 export interface BaseResponseProps {
-  id: string;
+  id: AggregateID;
   createdAt: Date;
   updatedAt: Date;
 }

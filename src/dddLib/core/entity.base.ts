@@ -7,7 +7,7 @@ import { convertPropsToObject } from '../utils';
 import { Guard } from '../utils/guard';
 import { ValueObject } from './valueObject.base';
 
-export type AggregateID = string;
+export type AggregateID = string & { readonly __brand?: 'AggregateID' };
 
 export interface BaseEntityProps {
   id: AggregateID;

@@ -95,7 +95,7 @@ export class Guard {
     return this.isBetween(value, 0, 65535) && value % 1 === 0;
   }
 
-  static isColorCode(colorCode: string): boolean {
+  static isColorCode(colorCode: string) {
     const hexColorPattern = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
     return hexColorPattern.test(colorCode);
   }

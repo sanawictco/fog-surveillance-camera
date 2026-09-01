@@ -81,8 +81,11 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
   }
 
   async findAll(params: FindDataParams): Promise<any> {
-    if (ObjectExtension.isObjectEmpty(params))
-      throw new Error('params in find method is empty');
+    if (
+      ObjectExtension.isObjectEmpty(
+        params as unknown as Record<string, unknown>,
+      )
+    )
     return new Promise((resolve) => {
       setTimeout(async () => {
         const query = TimeSeriesDbExtension.createFindAllQuery(params);
@@ -96,7 +99,11 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
   async findAllPaginated(
     params: PaginatedTimeseriesQueryBase,
   ): Promise<Paginated<any>> {
-    if (ObjectExtension.isObjectEmpty(params))
+    if (
+      ObjectExtension.isObjectEmpty(
+        params as unknown as Record<string, unknown>,
+      )
+    )
       throw new Error('params in find method is empty');
     return new Promise((resolve) => {
       setTimeout(async () => {

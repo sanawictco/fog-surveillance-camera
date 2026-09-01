@@ -28,7 +28,9 @@ export abstract class PaginatedQueryBase<Props> extends QueryBase<Props> {
     this.page = props.page || 1;
   }
 }
-
+/**
+ * Base class for timeseries queries
+ */
 export abstract class TimeseriesQueryBase extends FindDataParams {
   constructor(props: FindDataParams) {
     super();
@@ -37,10 +39,12 @@ export abstract class TimeseriesQueryBase extends FindDataParams {
     this.selectedColumns = props.selectedColumns;
     this.timeRangeInUnix = props.timeRangeInUnix;
     this.orderBy = props.orderBy;
-    this.filter = props.filter;
   }
 }
 
+/**
+ * Base class for timeseries queries
+ */
 export abstract class PaginatedTimeseriesQueryBase extends TimeseriesQueryBase {
   limit: number;
   page: number;
@@ -50,10 +54,14 @@ export abstract class PaginatedTimeseriesQueryBase extends TimeseriesQueryBase {
     this.page = props.page || 1;
   }
 }
-
-export interface OrderBySetting {
+export class OrderBySetting {
   column: string;
   status: OrderStates;
+
+  constructor(column: string, status: OrderStates) {
+    this.column = column;
+    this.status = status;
+  }
 }
 
 export enum OrderStates {
@@ -61,7 +69,12 @@ export enum OrderStates {
   DESCENDING = 'DESC',
 }
 
-export interface TimeRangeInUnix {
+export class TimeRangeInUnix {
   start: number;
   end: number;
+
+  constructor(start: number, end: number) {
+    this.start = start;
+    this.end = end;
+  }
 }

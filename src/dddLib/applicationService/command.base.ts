@@ -3,6 +3,7 @@ import { ArgumentNotProvidedException } from '../core/exceptions';
 import { RequestContextService } from '../utils/appRequestContext';
 import { Guard } from '../utils/guard';
 import { ActorDto } from 'src/modules/shared/dtos/actor.dto';
+import { AggregateID } from '../core';
 export type IdType = { id: string };
 export type CommandProps<T> = Omit<T, 'id' | 'metadata'> & Partial<Command>;
 
@@ -33,11 +34,12 @@ export class Command {
    * Command id, in case if we want to save it
    * for auditing purposes and create a correlation/causation chain
    */
-  readonly id: string;
+  readonly id: AggregateID;
 
   readonly metadata: CommandMetadata;
 
   readonly actorProps?: ActorDto;
+
   constructor(props: CommandProps<unknown>) {
     if (Guard.isEmpty(props)) {
       throw new ArgumentNotProvidedException(

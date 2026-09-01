@@ -32,8 +32,8 @@ export class SystemLogRepository
     const { superTableName, subTableName, data } = params;
     const { superTableInsertFormat, subTableInsertFormat } =
       TimeSeriesDbExtension.getSuperTableAndSubTableInsertFormat(
-        superTableName,
-        subTableName,
+        superTableName!,
+        subTableName!,
       );
     const createdAt = params?.createdAt ?? new Date().getTime();
     const messageParams = data[0]?.params ? data[0].params.join(',') : '';

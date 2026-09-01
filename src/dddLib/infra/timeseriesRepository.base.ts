@@ -15,38 +15,93 @@ export class FindDataParams {
   filter?: string;
 }
 
-export interface CreateSuperTableParams {
+export class CreateSuperTableParams {
   superTableName: string;
   columnNames: string[];
   columnDataTypes: string[];
+  tags?: Array<{ name: string; dataType: string }>;
+
+  constructor(
+    superTableName: string,
+    columnNames: string[],
+    columnDataTypes: string[],
+    tags?: Array<{ name: string; dataType: string }>,
+  ) {
+    this.superTableName = superTableName;
+    this.columnNames = columnNames;
+    this.columnDataTypes = columnDataTypes;
+    this.tags = tags;
+  }
 }
 
-export interface CreateSubTableParams {
+export class CreateSubTableParams {
   superTableName: string;
   subTableName: string;
+
+  constructor(superTableName: string, subTableName: string) {
+    this.superTableName = superTableName;
+    this.subTableName = subTableName;
+  }
 }
 
-export interface InsertDataParams<RecordFormat> {
-  superTableName: string;
-  subTableName: string;
+export class InsertDataParams<RecordFormat> {
+  /**
+   * Table names are optional because tenant-isolated repositories derive
+   * them server-side from validated identity and ignore caller values.
+   */
+  superTableName?: string;
+  subTableName?: string;
   data: RecordFormat;
   createdAt?: number;
+
+  constructor(
+    superTableName?: string,
+    subTableName?: string,
+    data?: RecordFormat,
+    createdAt?: number,
+  ) {
+    this.superTableName = superTableName;
+    this.subTableName = subTableName;
+    this.data = data as RecordFormat;
+    this.createdAt = createdAt;
+  }
 }
 
-export interface UpdateDataParams<RecordFormat> {
+export class UpdateDataParams<RecordFormat> {
   superTableName: string;
   subTableName: string;
   data: RecordFormat;
   createdAt: number;
+
+  constructor(
+    superTableName: string,
+    subTableName: string,
+    data: RecordFormat,
+    createdAt: number,
+  ) {
+    this.superTableName = superTableName;
+    this.subTableName = subTableName;
+    this.data = data;
+    this.createdAt = createdAt;
+  }
 }
 
-export interface DeleteDataParams {
+export class DeleteDataParams {
   superTableName: string;
   createdAt: number;
+
+  constructor(superTableName: string, createdAt: number) {
+    this.superTableName = superTableName;
+    this.createdAt = createdAt;
+  }
 }
 
-export interface DeleteAllDataParams {
+export class DeleteAllDataParams {
   superTableName: string;
+
+  constructor(superTableName: string) {
+    this.superTableName = superTableName;
+  }
 }
 
 export class CountDataParams {
@@ -63,17 +118,29 @@ export enum AggrigateMathFunctions {
   MIN = 'min',
 }
 
-export interface AggrigateDataParams {
+export class AggrigateDataParams {
   func: AggrigateMathFunctions;
   subTableName: string;
   columnIndex: number;
   timeRangeInUnix: TimeRangeInUnix;
+
+  constructor(
+    func: AggrigateMathFunctions,
+    subTableName: string,
+    columnIndex: number,
+    timeRangeInUnix: TimeRangeInUnix,
+  ) {
+    this.func = func;
+    this.subTableName = subTableName;
+    this.columnIndex = columnIndex;
+    this.timeRangeInUnix = timeRangeInUnix;
+  }
 }
 
 export interface TimeseriesRepositoryBase<RecordFormat, Entity = unknown> {
-  createSuperTable?(entity?: Entity): void;
-  createSubTable?(params: CreateSubTableParams, entity?: Entity): void;
-  deleteSubTable(subTableName: string): void;
+  createSuperTable?(entity?: Entity): Promise<void>;
+  createSubTable(params: CreateSubTableParams, entity?: Entity): Promise<void>;
+  deleteSubTable(subTableName: string): Promise<void>;
   findAll(params: FindDataParams): Promise<any>;
   findAllPaginated(
     params: PaginatedTimeseriesQueryBase,
@@ -82,5 +149,5 @@ export interface TimeseriesRepositoryBase<RecordFormat, Entity = unknown> {
   count(params: CountDataParams): Promise<number>;
   // aggregate funcations in math not ddd aggregate
   findAggrigate?(params: AggrigateDataParams): Promise<number>;
-  clearSuperTable(superTableName: string): void;
+  update?(params: Entity): Promise<Entity>;
 }
