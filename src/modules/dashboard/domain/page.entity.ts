@@ -8,7 +8,7 @@ import {
   UpdatePageProps,
 } from './page.type';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
-import { PageType } from './valueObjects/pageType.vo';
+import { Page } from './valueObjects/pageType.vo';
 import { PageIndex } from './valueObjects/pageIndex.vo';
 import { PageContent } from './valueObjects/pageContent.vo';
 import { PageCreatedDomainEvent } from './events/pageCreated.domainEvent';
@@ -32,7 +32,7 @@ export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
       ...createPageProps,
       name: new Name(createPageProps.name),
       nvrId: new BusinessId(createPageProps.nvrId),
-      type: new PageType(createPageProps.type),
+      type: new Page(createPageProps.type),
       pageIndex: new PageIndex(pageIndex),
       content: new PageContent([]),
       runningConfigs: RunningConfigs.init(),
@@ -84,14 +84,14 @@ export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
 
   static getFogPubToCloudMqttTopics() {
     const mqttPublishTopicsObject = {
-      pageConfig: `${AppConfig().nvrId}/page/config/sub`,
+      pageConfig: `${AppConfig().tenantId}/${AppConfig().nvrId}/page/config/sub`,
     };
     return Object.freeze(mqttPublishTopicsObject);
   }
 
   public static getFogSubOnCloudMqttTopics() {
     const mqttSubscribeTopicsObject: PageSubMqttTopics = {
-      pageConfigs: `${AppConfig().nvrId}/page/config/pub`,
+      pageConfigs: `${AppConfig().tenantId}/${AppConfig().nvrId}/page/config/pub`,
     };
     return Object.freeze(mqttSubscribeTopicsObject);
   }

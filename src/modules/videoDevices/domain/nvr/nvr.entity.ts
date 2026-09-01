@@ -25,6 +25,7 @@ import {
   UpdateNvrProps,
 } from './nvr.type';
 import { AccessToken } from './valueObjects/accessToken.vo';
+import { CloudIsRecovering } from './valueObjects/cloudIsRecovering.vo';
 import { CloudFailedAt } from './valueObjects/cloudFailedAt.vo';
 import { MaxCameras } from './valueObjects/maxCameras.vo';
 import { NvrLanguage } from './valueObjects/NvrLanguage.vo';
@@ -44,6 +45,7 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
       lang: new NvrLanguage(LanguageCode.FA),
       isActive: IsActive.init(),
       liveSignalStatus: LiveSignalStatus.init(),
+      cloudIsRecovering: CloudIsRecovering.init(),
       cloudFailedAt: CloudFailedAt.init(),
       runningConfigs: RunningConfigs.init(),
     };
@@ -69,6 +71,10 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
       liveSignalStatus: this.createValueObjectIfDefined(
         updateProps.liveSignalStatus,
         LiveSignalStatus,
+      ),
+      cloudIsRecovering: this.createValueObjectIfDefined(
+        updateProps.cloudIsRecovering,
+        CloudIsRecovering,
       ),
       cloudFailedAt: this.createValueObjectIfDefined(
         updateProps.cloudFailedAt,
@@ -133,20 +139,22 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
 
   public static getFogPubToCloudMqttTopics(): NvrFogPubToCloudMqttTopics {
     const nvrId = AppConfig().nvrId;
+    const tenantId = AppConfig().tenantId;
     const mqttPublishTopicsObject: NvrFogPubToCloudMqttTopics = {
-      videoDeviceSoftwareConfigs: `${nvrId}/videoDevice/Config/sub`,
-      videoDeviceSystemLogs: `${nvrId}/videoDevice/systemLogs/sub`,
+      videoDeviceSoftwareConfigs: `${tenantId}/${nvrId}/videoDevice/Config/sub`,
+      videoDeviceSystemLogs: `${tenantId}/${nvrId}/videoDevice/systemLogs/sub`,
     };
     return Object.freeze(mqttPublishTopicsObject);
   }
 
   public static getFogSubOnCloudMqttTopics(): NvrFogSubOnCloudMqttTopics {
     const nvrId = AppConfig().nvrId;
+    const tenantId = AppConfig().tenantId;
     const mqttSubscribeTopicsObject: NvrFogSubOnCloudMqttTopics = {
-      videoDeviceSoftwareConfigs: `${nvrId}/videoDevice/Config/pub`,
-      cloudRecoveryDataAck: `${nvrId}/cloudRecoveryData/pub`,
-      cloudIsAvailable: `${nvrId}/cloudIsAvailable/pub`,
-      pageConfig: `${nvrId}/page/config/pub`,
+      videoDeviceSoftwareConfigs: `${tenantId}/${nvrId}/videoDevice/Config/pub`,
+      cloudRecoveryDataAck: `${tenantId}/${nvrId}/cloudRecoveryData/pub`,
+      cloudIsAvailable: `${tenantId}/${nvrId}/cloudIsAvailable/pub`,
+      pageConfig: `${tenantId}/${nvrId}/page/config/pub`,
     };
     return Object.freeze(mqttSubscribeTopicsObject);
   }

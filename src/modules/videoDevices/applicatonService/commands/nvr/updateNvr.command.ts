@@ -20,6 +20,7 @@ export class UpdateNvrCommand extends Command implements UpdateNvrProps {
   password?: string;
   lang?: LanguageCode;
   liveSignalStatus?: LiveSignalStatuses;
+  cloudIsRecovering?: boolean;
   cloudFailedAt?: number;
   runningConfigs?: Record<string, string>;
 
@@ -29,6 +30,7 @@ export class UpdateNvrCommand extends Command implements UpdateNvrProps {
     this.password = props.password;
     this.lang = props.lang;
     this.liveSignalStatus = props.liveSignalStatus;
+    this.cloudIsRecovering = props.cloudIsRecovering;
     this.cloudFailedAt = props.cloudFailedAt;
     this.runningConfigs = props.runningConfigs;
   }
@@ -52,6 +54,7 @@ export class UpdateNvrCommandHandler implements ICommandHandler<UpdateNvrCommand
       password: command.password,
       lang: command.lang,
       liveSignalStatus: command.liveSignalStatus,
+      cloudIsRecovering: command.cloudIsRecovering,
       cloudFailedAt: command.cloudFailedAt,
       runningConfigs: command.runningConfigs,
     };

@@ -6,7 +6,7 @@ import { PageContent } from '../../domain/valueObjects/pageContent.vo';
 import { PageIndex } from '../../domain/valueObjects/pageIndex.vo';
 import { PageModel } from '../schemas/page.schema';
 import { PageResponseDto } from '../../applicationService/contracts/page.response.dto';
-import { PageType } from '../../domain/valueObjects/pageType.vo';
+import { Page } from '../../domain/valueObjects/pageType.vo';
 import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
 
@@ -47,7 +47,7 @@ export class PageMapper implements Mapper<
       props: {
         name: new Name(record.name),
         nvrId: new BusinessId(record.nvrId),
-        type: new PageType(record.type),
+        type: new Page(record.type),
         pageIndex: new PageIndex(record.pageIndex),
         content: new PageContent(record.content),
         runningConfigs: new RunningConfigs(record.runningConfigs),

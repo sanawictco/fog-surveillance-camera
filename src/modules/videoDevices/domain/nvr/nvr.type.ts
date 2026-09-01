@@ -12,6 +12,7 @@ import { LanguageCode } from 'src/extensions/translation/languageCode.enum';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { MaxCameras } from './valueObjects/maxCameras.vo';
+import { CloudIsRecovering } from './valueObjects/cloudIsRecovering.vo';
 import { CloudFailedAt } from './valueObjects/cloudFailedAt.vo';
 
 export interface NvrValueObjects {
@@ -24,6 +25,7 @@ export interface NvrValueObjects {
   lang: NvrLanguage;
   isActive: IsActive;
   liveSignalStatus: LiveSignalStatus;
+  cloudIsRecovering: CloudIsRecovering;
   cloudFailedAt: CloudFailedAt;
   runningConfigs: RunningConfigs;
 }
@@ -38,7 +40,8 @@ export interface NvrProps {
   lang: LanguageCode;
   isActive: boolean;
   liveSignalStatus: LiveSignalStatuses;
-  cloudFailedAt: number; // a unix time for save cloud failure time
+  cloudIsRecovering: boolean;
+  cloudFailedAt: number;
   runningConfigs: Record<string, string>;
 }
 
@@ -56,6 +59,7 @@ export interface UpdateNvrProps {
   password?: string;
   lang?: LanguageCode;
   liveSignalStatus?: LiveSignalStatuses;
+  cloudIsRecovering?: boolean;
   cloudFailedAt?: number;
   runningConfigs?: Record<string, string>;
 }

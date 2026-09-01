@@ -4,11 +4,11 @@ import { ArgumentInvalidException } from 'src/dddLib/core/exceptions';
 export enum PageTypes {
   WIDGET = 'widget',
 }
-export class PageType extends ValueObject<PageTypes> {
+export class Page extends ValueObject<PageTypes> {
   private _pageType: PageTypes;
-  constructor(systemLogType: PageTypes) {
+  constructor(pageType: PageTypes) {
     super();
-    this._pageType = systemLogType;
+    this._pageType = pageType;
     this.validate();
   }
   get role() {
@@ -21,6 +21,7 @@ export class PageType extends ValueObject<PageTypes> {
       );
     }
   }
+
   public unpack(): PageTypes {
     return this._pageType;
   }

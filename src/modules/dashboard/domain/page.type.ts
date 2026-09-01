@@ -1,5 +1,5 @@
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
-import { PageType, PageTypes } from './valueObjects/pageType.vo';
+import { Page, PageTypes } from './valueObjects/pageType.vo';
 import { PageIndex } from './valueObjects/pageIndex.vo';
 import { PageContent, Widget } from './valueObjects/pageContent.vo';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
@@ -8,7 +8,7 @@ import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.v
 export interface PageValueObjects {
   name: Name;
   nvrId: BusinessId;
-  type: PageType;
+  type: Page;
   pageIndex: PageIndex;
   content: PageContent;
   runningConfigs: RunningConfigs; // not used in fog but only for cloud recovery scenario (have sync schema in cloud and fog)

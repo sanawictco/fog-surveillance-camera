@@ -26,14 +26,17 @@ export class NvrModel implements NvrProps {
   @Prop({ required: true })
   password!: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: String, enum: LanguageCode })
   lang!: LanguageCode;
 
   @Prop({ default: false, required: true })
   isActive!: boolean;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: String, enum: LiveSignalStatuses })
   liveSignalStatus!: LiveSignalStatuses;
+
+  @Prop({ default: false, required: true })
+  cloudIsRecovering!: boolean;
 
   @Prop({ required: true })
   cloudFailedAt!: number;

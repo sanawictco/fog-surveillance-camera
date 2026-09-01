@@ -15,6 +15,7 @@ import { NvrPassword } from '../../domain/nvr/valueObjects/nvrPassword.vo';
 import { NvrLanguage } from '../../domain/nvr/valueObjects/NvrLanguage.vo';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { LiveSignalStatus } from '../../shared/valueObjects/liveSignalStatus.vo';
+import { CloudIsRecovering } from '../../domain/nvr/valueObjects/cloudIsRecovering.vo';
 import { CloudFailedAt } from '../../domain/nvr/valueObjects/cloudFailedAt.vo';
 
 @Injectable()
@@ -32,6 +33,7 @@ export class NvrMapper implements Mapper<NvrEntity, NvrModel, NvrResponseDto> {
       lang: copy.lang,
       isActive: copy.isActive,
       liveSignalStatus: copy.liveSignalStatus,
+      cloudIsRecovering: copy.cloudIsRecovering,
       cloudFailedAt: copy.cloudFailedAt,
       runningConfigs: copy.runningConfigs,
       createdAt: copy.createdAt,
@@ -55,6 +57,7 @@ export class NvrMapper implements Mapper<NvrEntity, NvrModel, NvrResponseDto> {
         lang: new NvrLanguage(record.lang),
         isActive: new IsActive(record.isActive),
         liveSignalStatus: new LiveSignalStatus(record.liveSignalStatus),
+        cloudIsRecovering: new CloudIsRecovering(record.cloudIsRecovering),
         cloudFailedAt: new CloudFailedAt(record.cloudFailedAt),
         runningConfigs: new RunningConfigs(record.runningConfigs),
       },
