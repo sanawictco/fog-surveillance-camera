@@ -22,21 +22,7 @@ import { LoggerService } from './logger.service';
             return { level: label.toUpperCase() };
           },
         },
-        timestamp: () => {
-          const date = new Date();
-          const offset = -date.getTimezoneOffset();
-          const sign = offset >= 0 ? '+' : '-';
-          const absoluteOffset = Math.abs(offset);
-          const hours = String(Math.floor(absoluteOffset / 60)).padStart(
-            2,
-            '0',
-          );
-          const minutes = String(absoluteOffset % 60).padStart(2, '0');
-          const localIso = new Date(date.getTime() + offset * 60_000)
-            .toISOString()
-            .slice(0, -1);
-          return `,"time":"${localIso}${sign}${hours}:${minutes}"`;
-        },
+        timestamp: pino.stdTimeFunctions.isoTime,
         transport:
           process.env.NODE_ENV === 'production'
             ? undefined
@@ -48,6 +34,7 @@ import { LoggerService } from './logger.service';
                   translateTime: 'SYS:HH:MM:ss',
                   customColors: 'info:cyan,warn:yellow,error:red,debug:magenta',
                   levelFirst: true,
+                  hideObject: false,
                   messageFormat: '{context} | {msg}',
                   errorLikeObjectKeys: ['err', 'error'],
                   errorProps: 'stack,message,type',
@@ -55,6 +42,9 @@ import { LoggerService } from './logger.service';
                 },
               },
         autoLogging: {
+          // The health probe lives at /system-monitor/health (verified route),
+          // not /health - match the real path (ignoring any query string) so
+          // poll traffic doesn't flood the access log.
           ignore: (req) =>
             (req.url ?? '').split('?')[0] === '/system-monitor/health',
         },
@@ -87,6 +77,7 @@ import { LoggerService } from './logger.service';
             'req.headers.authorization',
             'req.headers.cookie',
             'req.headers["x-auth-token"]',
+            'req.headers["x-nvr-access-token"]',
             '*.password',
             '*.token',
             '*.apiKey',

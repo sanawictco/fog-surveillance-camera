@@ -20,85 +20,104 @@ export class CacheService<T>
   implements
     CacheBase<T>,
     OnApplicationBootstrap,
+    IShutdownHandler,
     OnModuleInit,
-    OnModuleDestroy,
-    IShutdownHandler
+    OnModuleDestroy
 {
-  private readonly keyPrefix = 'cache:';
-  private isShutDown = false;
+  private readonly KEY_PREFIX = 'cache:';
+  private _isShutDown = false;
 
   constructor(
     @Inject(CACHE_CLIENT) private readonly cache: Redis,
-    private readonly logger: LoggerService,
+    private readonly loggerService: LoggerService,
     private readonly shutdownOrchestrator: ShutdownOrchestratorService,
   ) {}
-
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     this.shutdownOrchestrator.registerHandler('Cache', this);
   }
-
-  async onApplicationBootstrap(): Promise<void> {
+  async onModuleDestroy(): Promise<void> {
+    if (this._isShutDown) return;
+    if (this.shutdownOrchestrator.isShuttingDown) return; // stand down for orchestrator
+    await this.shutdown();
+  }
+  async onApplicationBootstrap() {
     try {
-      if (
-        process.env.NODE_ENV === 'development' ||
-        process.env.NODE_ENV === 'test'
-      ) {
-        await this.cleanStaleCache();
+      // IMPORTANT: Never flush on bootstrap in production!
+      // Only clean YOUR cache keys, never touch queue data
+      const env = process.env.NODE_ENV;
+
+      if (env === 'development' || env === 'test') {
+        this.loggerService.log('Cleaning stale cache keys...');
+        await this._cleanStaleCache();
       }
+
+      // Verify connection
       await this.cache.ping();
-      this.logger.log('Cache service initialized successfully');
+      this.loggerService.log('Cache service initialized successfully');
     } catch (err) {
-      this.logger.error('Error initializing cache service', err);
+      this.loggerService.error('Error initializing cache service:', err);
       throw err;
     }
   }
 
-  async shutdown(): Promise<void> {
-    if (this.isShutDown) return;
-    this.isShutDown = true;
+  async shutdown(signal?: string) {
+    if (this._isShutDown) return;
+    this._isShutDown = true;
+
+    this.loggerService.log(
+      `Cache service shutting down (signal: ${signal})...`,
+    );
 
     try {
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const gracefulClose = this.cache
-        .quit()
-        .then(() => true)
-        .catch(() => false);
-      const closed = await Promise.race([
-        gracefulClose,
-        new Promise<boolean>((resolve) => {
-          timer = setTimeout(() => resolve(false), 2_000);
-        }),
-      ]);
-      if (timer) clearTimeout(timer);
-      if (closed) {
-        this.logger.log('Cache Redis connection closed gracefully');
-      } else {
-        this.logger.warn('Cache Redis close timed out; forcing disconnect');
-        this.cache.disconnect();
-      }
+      // quit() waits for pending commands to finish, then closes gracefully
+      await this.cache.quit();
+      this.loggerService.log('Cache Redis connection closed gracefully');
     } catch (err) {
-      this.logger.error('Error during cache shutdown', err);
+      this.loggerService.error('Error during cache shutdown:', err);
+      // Force disconnect if graceful shutdown fails
       this.cache.disconnect();
     }
   }
 
-  async onModuleDestroy(): Promise<void> {
-    if (this.isShutDown || this.shutdownOrchestrator.isShuttingDown) return;
-    await this.shutdown();
+  private async _cleanStaleCache() {
+    // ONLY delete keys with OUR prefix - never touch queue data!
+    const keys = await this._scanKeys(`${this.KEY_PREFIX}*`);
+
+    if (keys.length > 0) {
+      // Delete in batches to avoid blocking Redis
+      const batchSize = 1000;
+      for (let i = 0; i < keys.length; i += batchSize) {
+        const batch = keys.slice(i, i + batchSize);
+        await this.cache.del(...batch);
+      }
+      this.loggerService.log(
+        `Cleared ${keys.length} stale cache keys on startup`,
+      );
+    } else {
+      this.loggerService.log('No stale cache keys found');
+    }
   }
 
   async set(key: string, value: T, ttlInSecond?: number): Promise<void> {
-    if (this.isShutDown) {
-      this.logger.warn(`Cannot set cache during shutdown: ${key}`);
-      return;
-    }
-    if (value === undefined) {
-      this.logger.warn(`Refusing to cache undefined value: ${key}`);
+    if (this._isShutDown) {
+      this.loggerService.warn(`Cannot set cache during shutdown: ${key}`);
       return;
     }
 
+    // undefined does not survive a JSON round-trip (JSON.stringify(undefined)
+    // is the JS value undefined, not a string) - storing it yields a garbage
+    // entry. null is fine (round-trips as null), so only guard undefined.
+    if (value === undefined) {
+      this.loggerService.warn(`Refusing to cache undefined value: ${key}`);
+      return;
+    }
+
+    const prefixedKey = `${this.KEY_PREFIX}${key}`;
+
     try {
-      const prefixedKey = this.prefix(key);
+      // Only attach an expiry for a positive TTL. A 0/negative TTL is treated
+      // as "no expiry" (matching setMany) rather than sent to Redis as an
+      // invalid EX argument that would throw.
       if (ttlInSecond !== undefined && ttlInSecond > 0) {
         await this.cache.set(
           prefixedKey,
@@ -110,46 +129,77 @@ export class CacheService<T>
         await this.cache.set(prefixedKey, JSON.stringify(value));
       }
     } catch (err) {
-      this.logger.error('Cache set error', err);
+      this.loggerService.error('Cache set error:', err);
+      // Don't throw - degrade gracefully
     }
   }
 
   async get(key: string): Promise<T | undefined> {
-    if (this.isShutDown) return undefined;
-
-    let value: string | null;
-    try {
-      value = await this.cache.get(this.prefix(key));
-    } catch (err) {
-      this.logger.error('Cache get error', err);
+    if (this._isShutDown) {
+      this.loggerService.warn(`Cannot get cache during shutdown: ${key}`);
       return undefined;
     }
 
-    if (!value) return undefined;
+    const prefixedKey = `${this.KEY_PREFIX}${key}`;
+
+    let value: string | null;
     try {
-      return JSON.parse(value) as T;
+      value = await this.cache.get(prefixedKey);
     } catch (err) {
-      this.logger.error(`Invalid cache value for ${key}; evicting`, err);
+      this.loggerService.error('Cache get error:', err);
+      return undefined; // Degrade gracefully on transient Redis errors
+    }
+
+    if (!value) return undefined;
+
+    try {
+      return JSON.parse(value);
+    } catch (err) {
+      // Corrupt (non-JSON) entry: it can never be read successfully and, with
+      // no TTL, would poison every future read. Evict it best-effort so the
+      // cache self-heals; delete() already swallows its own errors.
+      this.loggerService.error(
+        `Failed to parse cache value for key ${key}, evicting:`,
+        err,
+      );
       void this.delete(key);
       return undefined;
     }
   }
 
   async delete(key: string): Promise<void> {
-    if (this.isShutDown) return;
+    if (this._isShutDown) {
+      this.loggerService.warn(`Cannot delete cache during shutdown: ${key}`);
+      return;
+    }
+
+    const prefixedKey = `${this.KEY_PREFIX}${key}`;
+
     try {
-      await this.cache.del(this.prefix(key));
+      await this.cache.del(prefixedKey);
     } catch (err) {
-      this.logger.error('Cache delete error', err);
+      this.loggerService.error('Cache delete error:', err);
     }
   }
 
+  /**
+   * Best-effort distributed mutex over the cache Redis connection. Single,
+   * non-blocking attempt: returns a unique ownership token on success, or
+   * null if the key is already locked (or Redis is unreachable). Pair every
+   * non-null return with releaseLock(key, token) in a finally. Used to
+   * serialize read-modify-write critical sections (e.g. device runningConfigs)
+   * that would otherwise race across concurrent callers and duplicate the
+   * underlying physical command.
+   */
   async acquireLock(key: string, ttlInSecond: number): Promise<string | null> {
-    if (this.isShutDown) return null;
+    if (this._isShutDown) return null;
+
+    const lockKey = `${this.KEY_PREFIX}lock:${key}`;
     const token = randomUUID();
+
     try {
       const result = await this.cache.set(
-        this.prefix(`lock:${key}`),
+        lockKey,
         token,
         'EX',
         Math.max(1, Math.ceil(ttlInSecond)),
@@ -157,123 +207,108 @@ export class CacheService<T>
       );
       return result === 'OK' ? token : null;
     } catch (err) {
-      this.logger.error('Cache acquireLock error', err);
-      return null;
+      this.loggerService.error('Cache acquireLock error:', err);
+      return null; // Degrade gracefully - caller decides how to proceed
     }
   }
 
+  /**
+   * Release a lock taken with acquireLock. Atomic compare-and-delete (Lua) so
+   * a caller can only delete its own token - never a lock that already expired
+   * and was re-taken by someone else. Best-effort: swallows transient errors.
+   */
   async releaseLock(key: string, token: string): Promise<void> {
-    if (this.isShutDown) return;
-    const script = `
+    if (this._isShutDown) return;
+
+    const lockKey = `${this.KEY_PREFIX}lock:${key}`;
+    const luaScript = `
       if redis.call("get", KEYS[1]) == ARGV[1] then
         return redis.call("del", KEYS[1])
+      else
+        return 0
       end
-      return 0
     `;
+
     try {
-      await this.cache.eval(script, 1, this.prefix(`lock:${key}`), token);
+      await this.cache.eval(luaScript, 1, lockKey, token);
     } catch (err) {
-      this.logger.error('Cache releaseLock error', err);
+      this.loggerService.error('Cache releaseLock error:', err);
     }
   }
 
+  // Batch operations for better performance
   async setMany(
     entries: Array<{ key: string; value: T; ttl?: number }>,
   ): Promise<void> {
-    if (this.isShutDown) return;
+    if (this._isShutDown) return;
+
     try {
       const pipeline = this.cache.pipeline();
-      for (const { key, value, ttl } of entries) {
-        if (value === undefined) continue;
-        if (ttl !== undefined && ttl > 0) {
-          pipeline.set(this.prefix(key), JSON.stringify(value), 'EX', ttl);
-        } else {
-          pipeline.set(this.prefix(key), JSON.stringify(value));
+
+      for (const entry of entries) {
+        const prefixedKey = `${this.KEY_PREFIX}${entry.key}`;
+        const ttl = entry.ttl;
+        // Only attach an expiry for a positive TTL (matches set()); a
+        // 0/negative ttl means "no expiry" instead of an invalid EX arg.
+        if (ttl === undefined || ttl <= 0)
+          pipeline.set(prefixedKey, JSON.stringify(entry.value));
+        else pipeline.set(prefixedKey, JSON.stringify(entry.value), 'EX', ttl);
+      }
+
+      // pipeline.exec() resolves even when individual commands fail - their
+      // errors arrive as the first element of each [err, result] tuple and
+      // would otherwise be lost silently. Surface them without throwing.
+      const results = await pipeline.exec();
+      if (results) {
+        for (const [err] of results) {
+          if (err) this.loggerService.error('Cache setMany entry error:', err);
         }
       }
-      const results = await pipeline.exec();
-      for (const [err] of results ?? []) {
-        if (err) this.logger.error('Cache setMany entry error', err);
-      }
     } catch (err) {
-      this.logger.error('Cache setMany error', err);
+      // Don't throw - degrade gracefully (matches set()).
+      this.loggerService.error('Cache setMany error:', err);
     }
   }
 
   async getMany(keys: string[]): Promise<Map<string, T>> {
-    const result = new Map<string, T>();
-    if (this.isShutDown || keys.length === 0) return result;
+    if (this._isShutDown) return new Map();
 
-    let values: Array<string | null>;
+    const result = new Map<string, T>();
+    if (keys.length === 0) return result;
+
+    const prefixedKeys = keys.map((k) => `${this.KEY_PREFIX}${k}`);
+
+    let values: (string | null)[];
     try {
-      values = await this.cache.mget(...keys.map((key) => this.prefix(key)));
+      values = await this.cache.mget(...prefixedKeys);
     } catch (err) {
-      this.logger.error('Cache getMany error', err);
+      // Don't throw - degrade gracefully (matches get()); callers treat a
+      // missing entry as a cache miss and fall back.
+      this.loggerService.error('Cache getMany error:', err);
       return result;
     }
 
+    // Even cleaner with entries()
     for (const [index, key] of keys.entries()) {
       const value = values[index];
-      if (!value) continue;
-      try {
-        result.set(key, JSON.parse(value) as T);
-      } catch (err) {
-        this.logger.error(`Invalid cache value for ${key}; evicting`, err);
-        void this.delete(key);
+
+      if (value) {
+        try {
+          result.set(key, JSON.parse(value));
+        } catch (err) {
+          // Corrupt entry - evict best-effort so it stops poisoning reads.
+          this.loggerService.error(
+            `Failed to parse cache value for key ${key}, evicting:`,
+            err,
+          );
+          void this.delete(key);
+        }
       }
     }
+
     return result;
   }
-
-  async clearAll(): Promise<number> {
-    if (this.isShutDown) return 0;
-    const keys = await this.scanKeys(`${this.keyPrefix}*`);
-    for (let index = 0; index < keys.length; index += 1000) {
-      await this.cache.del(...keys.slice(index, index + 1000));
-    }
-    this.logger.log(`Cleared ${keys.length} cache keys`);
-    return keys.length;
-  }
-
-  async getStats(): Promise<{ totalKeys: number; memoryUsed: string }> {
-    if (this.isShutDown) return { totalKeys: 0, memoryUsed: 'unknown' };
-    const [keys, info] = await Promise.all([
-      this.scanKeys(`${this.keyPrefix}*`),
-      this.cache.info('memory'),
-    ]);
-    const memoryMatch = /used_memory_human:(.+)/.exec(info);
-    return {
-      totalKeys: keys.length,
-      memoryUsed: memoryMatch?.[1]?.trim() ?? 'unknown',
-    };
-  }
-
-  async getKeysByPrefix(prefix: string): Promise<string[]> {
-    if (this.isShutDown) return [];
-    const keys = await this.scanKeys(`${this.keyPrefix}${prefix}:*`);
-    return keys.map((key) => key.slice(this.keyPrefix.length));
-  }
-
-  async healthCheck(): Promise<boolean> {
-    if (this.isShutDown) return false;
-    try {
-      return (await this.cache.ping()) === 'PONG';
-    } catch (err) {
-      this.logger.error('Cache health check failed', err);
-      return false;
-    }
-  }
-
-  private prefix(key: string): string {
-    return `${this.keyPrefix}${key}`;
-  }
-
-  private async cleanStaleCache(): Promise<void> {
-    const deleted = await this.clearAll();
-    this.logger.log(`Cleared ${deleted} stale cache keys on startup`);
-  }
-
-  private async scanKeys(pattern: string): Promise<string[]> {
+  private async _scanKeys(pattern: string): Promise<string[]> {
     const keys: string[] = [];
     let cursor = '0';
     do {
@@ -282,11 +317,67 @@ export class CacheService<T>
         'MATCH',
         pattern,
         'COUNT',
-        200,
+        200, // sweet spot: not too chatty, not too heavy per call
       );
       cursor = next;
       keys.push(...batch);
     } while (cursor !== '0');
     return keys;
+  }
+  // Clear all cache (use carefully!)
+  async clearAll(): Promise<number> {
+    if (this._isShutDown) return 0;
+
+    const keys = await this._scanKeys(`${this.KEY_PREFIX}*`);
+    if (keys.length === 0) return 0;
+
+    const batchSize = 1000;
+    for (let i = 0; i < keys.length; i += batchSize) {
+      await this.cache.del(...keys.slice(i, i + batchSize));
+    }
+
+    this.loggerService.log(`Cleared ${keys.length} cache keys`);
+    return keys.length;
+  }
+
+  // Get cache statistics
+  async getStats(): Promise<{
+    totalKeys: number;
+    memoryUsed: string;
+  }> {
+    if (this._isShutDown) return { totalKeys: 0, memoryUsed: 'unknown' };
+
+    const keys = await this._scanKeys(`${this.KEY_PREFIX}*`);
+    const info = await this.cache.info('memory');
+    const regex = /used_memory_human:(.+)/;
+    const memoryMatch = regex.exec(info);
+    const memoryUsed = memoryMatch ? memoryMatch[1]!.trim() : 'unknown';
+
+    return {
+      totalKeys: keys.length,
+      memoryUsed,
+    };
+  }
+
+  async getKeysByPrefix(prefix: string): Promise<string[]> {
+    if (this._isShutDown) return [];
+
+    // Strip the internal KEY_PREFIX so callers get back the same key space
+    // they pass to set/get/delete (which all add the prefix themselves).
+    const prefixed = await this._scanKeys(`${this.KEY_PREFIX}${prefix}:*`);
+    return prefixed.map((k) => k.slice(this.KEY_PREFIX.length));
+  }
+
+  // Check if cache is healthy
+  async healthCheck(): Promise<boolean> {
+    if (this._isShutDown) return false;
+
+    try {
+      const result = await this.cache.ping();
+      return result === 'PONG';
+    } catch (err) {
+      this.loggerService.error('Cache health check failed:', err);
+      return false;
+    }
   }
 }

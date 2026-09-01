@@ -1,6 +1,7 @@
 import { UserInfoDto } from './userInfo.dto';
 import { Injectable } from '@nestjs/common';
 import { RequestContextService } from 'src/dddLib/utils/appRequestContext';
+import { LanguageCode } from '../translation/languageCode.enum';
 
 @Injectable()
 export class UserInfoService {
@@ -16,6 +17,8 @@ export class UserInfoService {
     return structuredClone({
       id: '00000000-0000-0000-0000-000000000000',
       name: 'sanaw-gateway-user',
-    });
+      phoneNumber: '',
+      lang: LanguageCode.EN,
+    } as UserInfoDto);
   }
 }

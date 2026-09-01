@@ -1,8 +1,10 @@
 import { RequestContext } from 'nestjs-request-context';
+import type { UserInfoDto } from 'src/extensions/userInfo/userInfo.dto';
 // Setting some isolated context for each request.
 
 export class AppRequestContext extends RequestContext {
   requestId!: string;
+  user?: UserInfoDto;
 }
 
 export class RequestContextService {

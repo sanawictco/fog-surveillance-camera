@@ -1,4 +1,9 @@
 export interface MqttEventDataDto {
-  readonly topic: string;
-  readonly message: string;
+  topic: string;
+  message: string;
+}
+
+export interface MqttEventByteDataDto {
+  topic: string;
+  message: Buffer;
 }
