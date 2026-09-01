@@ -15,7 +15,7 @@ export class AccessToken extends ValueObject<string> {
   protected validate(): void {
     if (!Guard.isBetween(this._accessToken, 32, 32))
       throw new ArgumentOutOfRangeException(
-        `ValueObjectError: accessToken=${this._accessToken} is out of range`,
+        'ValueObjectError: NVR access token is out of range',
       );
   }
   public unpack(): string {

@@ -15,7 +15,7 @@ export class NvrPassword extends ValueObject<string> {
   protected validate(): void {
     if (!Guard.isBetween(this._password, 12, 30))
       throw new ArgumentInvalidException(
-        `ValueObjectError: password=${this._password} must be 12-30 characters`,
+        'ValueObjectError: NVR password must be 12-30 characters',
       );
   }
 

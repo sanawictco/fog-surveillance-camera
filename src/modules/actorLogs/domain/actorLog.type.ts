@@ -1,5 +1,5 @@
 export interface CreateActorLogProps {
-  createdAt: number;
+  createdAt?: number;
   actorType: ActorLogTypes;
   actorId: string;
   messageProps: ActorLogMessageProps;
@@ -41,5 +41,14 @@ export const actorLogColumnTypes: string[] = [
   `VARCHAR(${ACTOR_LOG_MESSAGE_KEY_COLUMN_SIZE})`,
   `VARCHAR(${ACTOR_LOG_MESSAGE_PARAMS_COLUMN_SIZE})`,
 ];
+
+export function assertActorLogTypes(types: ActorLogTypes[]): void {
+  if (
+    !Array.isArray(types) ||
+    types.some((type) => !Object.values(ActorLogTypes).includes(type))
+  ) {
+    throw new Error('actor log type is invalid');
+  }
+}
 
 export const ACTOR_LOG_SUPER_TABLE = 'actorLogSuperTable';

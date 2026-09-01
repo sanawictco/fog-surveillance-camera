@@ -44,7 +44,7 @@ export class CameraModel implements CameraProps {
   @Prop({ required: true })
   isActive!: boolean;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: String, enum: LiveSignalStatuses })
   liveSignalStatus!: LiveSignalStatuses;
 
   @Prop({ default: new Date() })
@@ -57,3 +57,5 @@ export class CameraModel implements CameraProps {
   runningConfigs!: Record<string, string>;
 }
 export const CameraSchema = SchemaFactory.createForClass(CameraModel);
+CameraSchema.index({ nvrId: 1, serialNumber: 1 }, { unique: true });
+CameraSchema.index({ nvrId: 1, macAddress: 1 }, { unique: true });

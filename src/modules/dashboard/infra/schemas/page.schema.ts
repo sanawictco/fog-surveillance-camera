@@ -14,7 +14,12 @@ export class PageModel implements PageProps {
   @Prop({ required: true })
   nvrId!: string;
 
-  @Prop({ default: PageTypes.WIDGET, required: true })
+  @Prop({
+    default: PageTypes.WIDGET,
+    required: true,
+    type: String,
+    enum: PageTypes,
+  })
   type!: PageTypes;
 
   @Prop({ required: true })

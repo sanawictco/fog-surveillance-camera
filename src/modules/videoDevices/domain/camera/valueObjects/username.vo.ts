@@ -15,7 +15,7 @@ export class Username extends ValueObject<string> {
   protected validate(): void {
     if (!Guard.isBetween(this._username, 4, 32))
       throw new ArgumentInvalidException(
-        `ValueObjectError: username=${this._username} must be 4-32 characters`,
+        'ValueObjectError: camera username must be 4-32 characters',
       );
   }
 

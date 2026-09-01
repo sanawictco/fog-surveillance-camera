@@ -12,7 +12,7 @@ export interface SystemLogMessageProps {
 }
 
 export interface CreateSystemLogProps {
-  createdAt: number;
+  createdAt?: number;
   type: SystemLogTypes;
   messageProps: SystemLogMessageProps;
   section: SystemLogSections;
@@ -39,6 +39,15 @@ export type SystemLogRecordFormat = [
   SystemLogSections,
   string,
 ];
+export function assertSystemLogTypes(types: SystemLogTypes[]): void {
+  if (
+    !Array.isArray(types) ||
+    types.some((type) => !Object.values(SystemLogTypes).includes(type))
+  ) {
+    throw new Error('system log type is invalid');
+  }
+}
+
 export const systemlogSubTableNames = ['warning', 'error', 'information'];
 export const SYSTEM_LOG_SUPER_TABLE = 'systemLogSuperTable';
 export const SYSTEM_LOG_EVENT_BUS_LISTENER_PREFIX = 'systemlog_';

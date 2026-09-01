@@ -11,6 +11,7 @@ import {
   SystemLogRecordFormat,
   SystemLogSections,
   SystemLogTypes,
+  assertSystemLogTypes,
 } from 'src/modules/systemLogs/domain/systemLog.type';
 import { SYSTEM_LOG_REPOSITORY } from '../../infra/diToken/systemLog.diToken';
 import { SystemLogRepository } from '../../infra/repositories/systemLog.timeseriesRepository';
@@ -19,7 +20,7 @@ export class CreateSystemLogCommand
   extends Command
   implements CreateSystemLogProps
 {
-  createdAt: number;
+  createdAt?: number;
   entityId: string;
   type: SystemLogTypes;
   messageProps: SystemLogMessageProps;
@@ -27,6 +28,7 @@ export class CreateSystemLogCommand
 
   constructor(props: CommandProps<CreateSystemLogCommand>) {
     super(props);
+    assertSystemLogTypes([props.type]);
     this.createdAt = props.createdAt;
     this.type = props.type;
     this.messageProps = props.messageProps;

@@ -9,6 +9,7 @@ import {
   ActorLogRecordFormat,
   ActorLogTypes,
   CreateActorLogProps,
+  assertActorLogTypes,
 } from 'src/modules/actorLogs/domain/actorLog.type';
 import { ACTOR_LOG_REPOSITORY } from '../../infra/actorLog.diToken';
 import { ActorLogRepository } from '../../infra/actorLog.timeseriesRepository';
@@ -18,12 +19,13 @@ export class CreateActorLogCommand
   extends Command
   implements CreateActorLogProps
 {
-  createdAt: number;
+  createdAt?: number;
   actorType: ActorLogTypes;
   actorId: string;
   messageProps: ActorLogMessageProps;
   constructor(props: CommandProps<CreateActorLogCommand>) {
     super(props);
+    assertActorLogTypes([props.actorType]);
     this.createdAt = props.createdAt;
     this.actorType = props.actorType;
     this.actorId = props.actorId;
@@ -39,7 +41,8 @@ export class CreateActorLogCommandHandler implements ICommandHandler<CreateActor
   ) {}
 
   async execute(command: CreateActorLogCommand): Promise<void> {
-    const { createdAt, actorType, actorId, messageProps } = command;
+    const createdAt = command.createdAt ?? new Date().getTime();
+    const { actorType, actorId, messageProps } = command;
     const actorLog: ActorLogRecordFormat = [
       createdAt,
       actorType,
