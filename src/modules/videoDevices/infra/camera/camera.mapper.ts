@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { Mapper } from 'src/dddLib/infra';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
-import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 import { CameraResponseDto } from '../../contracts/camera/http/camera.response.dto';
+import { CameraEntity } from '../../domain/camera/camera.entity';
 import { HasAudio } from '../../domain/camera/valueObjects/hasAudio';
 import { HasPtz } from '../../domain/camera/valueObjects/hasPtz.vo';
 import { MacAddress } from '../../domain/camera/valueObjects/macAddress.vo';
@@ -16,7 +16,6 @@ import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { LiveSignalStatus } from '../../shared/valueObjects/liveSignalStatus.vo';
 import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
 import { CameraModel } from './camera.schema';
-import { CameraEntity } from '../../domain/camera/camera.entity';
 
 @Injectable()
 export class CameraMapper implements Mapper<
@@ -28,6 +27,7 @@ export class CameraMapper implements Mapper<
     const copy = entity.getProps();
     const record: CameraModel = {
       id: copy.id,
+      tenantId: copy.tenantId,
       name: copy.name,
       productModel: copy.productModel,
       serialNumber: copy.serialNumber,
@@ -41,7 +41,6 @@ export class CameraMapper implements Mapper<
       nvrId: copy.nvrId,
       liveSignalStatus: copy.liveSignalStatus,
       isActive: copy.isActive,
-      runningConfigs: copy.runningConfigs,
       createdAt: copy.createdAt,
       updatedAt: copy.updatedAt,
     };
@@ -54,6 +53,7 @@ export class CameraMapper implements Mapper<
       createdAt: new Date(record.createdAt),
       updatedAt: new Date(record.updatedAt),
       props: {
+        tenantId: new BusinessId(record.tenantId),
         name: new Name(record.name),
         productModel: new ProductModel(record.productModel),
         serialNumber: new SerialNumber(record.serialNumber),
@@ -67,7 +67,6 @@ export class CameraMapper implements Mapper<
         nvrId: new BusinessId(record.nvrId),
         liveSignalStatus: new LiveSignalStatus(record.liveSignalStatus),
         isActive: new IsActive(record.isActive),
-        runningConfigs: new RunningConfigs(record.runningConfigs),
       },
     });
     return entity;
@@ -75,30 +74,13 @@ export class CameraMapper implements Mapper<
 
   toResponse(entity: CameraEntity): CameraResponseDto {
     const props = entity.getProps();
-    const response = new CameraResponseDto(entity);
-    response.name = props.name;
-    response.productModel = props.productModel;
-    response.macAddress = props.macAddress;
-    response.port = props.port;
-    response.streams = props.streams;
-    response.hasPtz = props.hasPtz;
-    response.hasAudio = props.hasAudio;
-    return response;
+    return new CameraResponseDto(props);
   }
 
   toResponseAll(entities: CameraEntity[]): CameraResponseDto[] {
     const responseArr: CameraResponseDto[] = [];
     for (const entity of entities) {
-      const props = entity.getProps();
-      const response = new CameraResponseDto(entity);
-      response.name = props.name;
-      response.productModel = props.productModel;
-      response.macAddress = props.macAddress;
-      response.port = props.port;
-      response.streams = props.streams;
-      response.hasPtz = props.hasPtz;
-      response.hasAudio = props.hasAudio;
-      responseArr.push(response);
+      responseArr.push(this.toResponse(entity));
     }
     return responseArr;
   }

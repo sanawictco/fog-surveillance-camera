@@ -3,7 +3,6 @@ import { v4 } from 'uuid';
 
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
-import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 
 import AppConfig from 'configs/app.config';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
@@ -57,6 +56,7 @@ export class CameraEntity extends AggregateRoot<
     } = createCameraProps;
     const props: CameraValueObjects = {
       name: new Name(name),
+      tenantId: new BusinessId(createCameraProps.tenantId),
       productModel: new ProductModel(productModel),
       serialNumber: new SerialNumber(createCameraProps.serialNumber),
       username: new Username(username),
@@ -69,7 +69,6 @@ export class CameraEntity extends AggregateRoot<
       nvrId: new BusinessId(nvrId),
       isActive: new IsActive(false),
       liveSignalStatus: LiveSignalStatus.init(),
-      runningConfigs: RunningConfigs.init(),
     };
     const camera = new CameraEntity({ id, props });
     camera.addEvent(
@@ -87,14 +86,15 @@ export class CameraEntity extends AggregateRoot<
   update(updateCameraProps: UpdateCameraProps) {
     const updateCameraValueObjects: Partial<CameraValueObjects> = {
       name: this.createValueObjectIfDefined(updateCameraProps.name, Name),
-      runningConfigs: this.createValueObjectIfDefined(
-        updateCameraProps.runningConfigs,
-        RunningConfigs,
+      liveSignalStatus: this.createValueObjectIfDefined(
+        updateCameraProps.liveSignalStatus,
+        LiveSignalStatus,
       ),
     };
     const cleanedValueObjects = this.removeUndefinedProperties(
       updateCameraValueObjects,
     );
+
     const cleanedProps = this.removeUndefinedProperties(updateCameraProps);
 
     Object.assign(this.props, cleanedValueObjects);
@@ -125,7 +125,6 @@ export class CameraEntity extends AggregateRoot<
     this.props.liveSignalStatus = new LiveSignalStatus(
       LiveSignalStatuses.CONNECTED,
     );
-    this.props.runningConfigs = RunningConfigs.init();
     this.addEvent(
       new CameraInActivatedDomainEvent({
         aggregateId: this.id,

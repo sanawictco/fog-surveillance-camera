@@ -9,8 +9,9 @@ export class NvrCreatedDomainEvent
   readonly serialNumber: string;
   readonly accessToken: string;
   readonly password: string;
-  readonly workstationId: string;
+  readonly tenantId: string;
   readonly maxCameras: number;
+  readonly productModel: string;
 
   constructor(props: DomainEventProps<NvrCreatedDomainEvent>) {
     super(props);
@@ -18,7 +19,8 @@ export class NvrCreatedDomainEvent
     this.serialNumber = props.serialNumber;
     this.accessToken = props.accessToken;
     this.password = props.password;
-    this.workstationId = props.workstationId;
+    this.tenantId = props.tenantId;
     this.maxCameras = props.maxCameras;
+    this.productModel = props.productModel;
   }
 }

@@ -7,61 +7,56 @@ import {
   LiveSignalStatus,
   LiveSignalStatuses,
 } from '../../shared/valueObjects/liveSignalStatus.vo';
-import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 import { LanguageCode } from 'src/extensions/translation/languageCode.enum';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { MaxCameras } from './valueObjects/maxCameras.vo';
-import { CloudIsRecovering } from './valueObjects/cloudIsRecovering.vo';
 import { CloudFailedAt } from './valueObjects/cloudFailedAt.vo';
+import { ProductModel } from '../camera/valueObjects/productModel.vo';
 
 export interface NvrValueObjects {
   name: Name;
-  workstationId: BusinessId;
-  serialNumber: SerialNumber;
-  accessToken: AccessToken;
+  readonly tenantId: BusinessId;
+  readonly serialNumber: SerialNumber;
+  readonly accessToken: AccessToken;
+  readonly maxCameras: MaxCameras;
+  readonly productModel: ProductModel;
   password: NvrPassword;
-  maxCameras: MaxCameras;
   lang: NvrLanguage;
   isActive: IsActive;
   liveSignalStatus: LiveSignalStatus;
-  cloudIsRecovering: CloudIsRecovering;
   cloudFailedAt: CloudFailedAt;
-  runningConfigs: RunningConfigs;
 }
 
 export interface NvrProps {
   name: string;
-  workstationId: string;
-  serialNumber: string;
-  accessToken: string;
+  readonly tenantId: string;
+  readonly serialNumber: string;
+  readonly accessToken: string;
+  readonly maxCameras: number;
+  readonly productModel: string;
   password: string;
-  maxCameras: number;
   lang: LanguageCode;
   isActive: boolean;
   liveSignalStatus: LiveSignalStatuses;
-  cloudIsRecovering: boolean;
   cloudFailedAt: number;
-  runningConfigs: Record<string, string>;
 }
 
 export interface CreateNvrProps {
   name: string;
-  workstationId: string;
-  serialNumber: string;
-  accessToken: string;
+  readonly tenantId: string;
+  readonly serialNumber: string;
+  readonly accessToken: string;
+  readonly maxCameras: number;
+  readonly productModel: string;
   password: string;
-  maxCameras: number;
 }
 
 export interface UpdateNvrProps {
   name?: string;
   password?: string;
   lang?: LanguageCode;
-  liveSignalStatus?: LiveSignalStatuses;
-  cloudIsRecovering?: boolean;
   cloudFailedAt?: number;
-  runningConfigs?: Record<string, string>;
 }
 
 export interface NvrFogPubToCloudMqttTopics {
@@ -83,24 +78,18 @@ export enum NvrConfigs {
   IN_ACTIVE_NVR = 'inactiveNvr',
   REGISTER = 'register',
   FOG_LIVE_SIGNAL = 'fogLiveSignal',
-  CLOUD_IS_RECOVERING = 'cloudIsRecovering',
   SEARCH = 'search',
   SOFT_DELETE_MULTI_CAMERAS = 'softDeleteMultiCameras',
+  ACTIVE_MULTI_CAMERAS = 'activeMultiCameras',
+  IN_ACTIVE_MULTI_CAMERAS = 'inActiveMultiCameras',
 }
 
 export enum NvrWebSocketDataTypes {
-  CLOUD_IS_RECOVERING = 'cloudIsRecovering',
   LIVE_SIGNAL = 'liveSignal',
 }
 
 export enum NvrWebSocketConfigTypes {
   UPDATE_NVR = 'updateNvr',
-  CREATE_NVR = 'createNvr',
-  DELETE_NVR = 'deleteNvr',
-  ACTIVE_NVR = 'activeNvr',
-  IN_ACTIVE_NVR = 'inactiveNvr',
-  SEARCH = 'search',
-  REGISTER = 'register',
 }
 
 export enum NvrSystemLogDataTypes {
@@ -109,19 +98,16 @@ export enum NvrSystemLogDataTypes {
 }
 
 export enum NvrSystemLogConfigTypes {
-  ACTIVE_NVR = 'activeNvr',
-  IN_ACTIVE_NVR = 'inactiveNvr',
   UPDATE_NVR = 'updateNvr',
-}
-
-export enum NvrSystemLogConfigTypesFromFog {
-  UPDATE_HARDWARE_CONFIG = 'updateHardwareConfig',
-  REGISTER = 'register',
 }
 
 export type NvrLanguageKeys = {
   nvr: {
     actorLog: {
+      created: string;
+      deleted: string;
+      active: string;
+      inactive: string;
       nameUpdated: string;
       passwordUpdated: string;
       langUpdated: {

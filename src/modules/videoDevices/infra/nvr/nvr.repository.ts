@@ -3,14 +3,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CacheService } from 'src/extensions/caching/cache.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
-import { ParentRepository } from 'src/modules/shared/parent.repository';
-import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
-import { NvrModel } from './nvr.schema';
-import { NvrMapper } from './nvr.mapper';
-import { NvrEntity } from '../../domain/nvr/nvr.entity';
-import { NvrResponseDto } from '../../contracts/nvr/http/nvr.response.dto';
-import { NvrValueObjects } from '../../domain/nvr/nvr.type';
 import { TranslatorService } from 'src/extensions/translation/translatorService';
+import { ParentRepository } from 'src/modules/shared/parent.repository';
+import { NvrResponseDto } from '../../contracts/nvr/http/nvr.response.dto';
+import { NvrEntity } from '../../domain/nvr/nvr.entity';
+import { NvrValueObjects } from '../../domain/nvr/nvr.type';
+import { NvrMapper } from './nvr.mapper';
+import { NvrModel } from './nvr.schema';
 
 @Injectable()
 export class NvrRepository extends ParentRepository<
@@ -42,8 +41,6 @@ export class NvrRepository extends ParentRepository<
   async restoreAndInitRecordsToCache(): Promise<void> {
     const nvrs = await this.nvrModel.find().lean();
     for (const nvr of nvrs) {
-      nvr.runningConfigs = RunningConfigs.init().unpack();
-      await this.nvrModel.updateOne({ id: nvr.id }, nvr);
       await this.cache.set(`${NvrModel.name}:${nvr.id}`, nvr);
       TranslatorService.LANG = nvr.lang;
     }

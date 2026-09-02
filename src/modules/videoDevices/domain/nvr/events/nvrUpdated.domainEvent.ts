@@ -11,7 +11,6 @@ export class NvrUpdatedDomainEvent
   readonly password?: string;
   readonly lang?: LanguageCode;
   readonly liveSignalStatus?: LiveSignalStatuses;
-  readonly cloudIsRecovering?: boolean;
 
   constructor(props: DomainEventProps<NvrUpdatedDomainEvent>) {
     super(props);
@@ -19,6 +18,5 @@ export class NvrUpdatedDomainEvent
     this.password = props.password;
     this.lang = props.lang;
     this.liveSignalStatus = props.liveSignalStatus;
-    this.cloudIsRecovering = props.cloudIsRecovering;
   }
 }

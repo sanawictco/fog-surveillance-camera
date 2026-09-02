@@ -8,7 +8,6 @@ import { CameraModel } from './camera.schema';
 import { CameraValueObjects } from '../../domain/camera/camera.type';
 import { ParentRepository } from 'src/modules/shared/parent.repository';
 import { CameraMapper } from './camera.mapper';
-import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 import { CameraResponseDto } from '../../contracts/camera/http/camera.response.dto';
 import { CameraEntity } from '../../domain/camera/camera.entity';
 
@@ -35,8 +34,6 @@ export class CameraRepository
   async restoreAndInitRecordsToCache(): Promise<void> {
     const cameras = await this.cameraModel.find().lean();
     for (const camera of cameras) {
-      camera.runningConfigs = RunningConfigs.init().unpack();
-      await this.cameraModel.updateOne({ id: camera.id }, camera);
       await this.cache.set(`${CameraModel.name}:${camera.id}`, camera);
     }
   }

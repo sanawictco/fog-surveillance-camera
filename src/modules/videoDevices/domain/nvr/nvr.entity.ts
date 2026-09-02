@@ -3,7 +3,6 @@ import { AggregateID, AggregateRoot } from 'src/dddLib/core';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { LanguageCode } from 'src/extensions/translation/languageCode.enum';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
-import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 import { v4 } from 'uuid';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import {
@@ -25,11 +24,11 @@ import {
   UpdateNvrProps,
 } from './nvr.type';
 import { AccessToken } from './valueObjects/accessToken.vo';
-import { CloudIsRecovering } from './valueObjects/cloudIsRecovering.vo';
 import { CloudFailedAt } from './valueObjects/cloudFailedAt.vo';
 import { MaxCameras } from './valueObjects/maxCameras.vo';
 import { NvrLanguage } from './valueObjects/NvrLanguage.vo';
 import { NvrPassword } from './valueObjects/nvrPassword.vo';
+import { ProductModel } from '../camera/valueObjects/productModel.vo';
 
 export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
   declare protected readonly _id: AggregateID;
@@ -39,15 +38,14 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
       name: new Name(createNvrProps.name),
       serialNumber: new SerialNumber(createNvrProps.serialNumber),
       accessToken: new AccessToken(createNvrProps.accessToken),
-      workstationId: new BusinessId(createNvrProps.workstationId),
+      tenantId: new BusinessId(createNvrProps.tenantId),
       password: new NvrPassword(createNvrProps.password),
       maxCameras: new MaxCameras(createNvrProps.maxCameras),
+      productModel: new ProductModel(createNvrProps.productModel),
       lang: new NvrLanguage(LanguageCode.FA),
       isActive: IsActive.init(),
-      liveSignalStatus: LiveSignalStatus.init(),
-      cloudIsRecovering: CloudIsRecovering.init(),
+      liveSignalStatus: new LiveSignalStatus(LiveSignalStatuses.CONNECTED),
       cloudFailedAt: CloudFailedAt.init(),
-      runningConfigs: RunningConfigs.init(),
     };
     const nvr = new NvrEntity({ id, props });
     nvr.addEvent(
@@ -68,21 +66,9 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
         NvrPassword,
       ),
       lang: this.createValueObjectIfDefined(updateProps.lang, NvrLanguage),
-      liveSignalStatus: this.createValueObjectIfDefined(
-        updateProps.liveSignalStatus,
-        LiveSignalStatus,
-      ),
-      cloudIsRecovering: this.createValueObjectIfDefined(
-        updateProps.cloudIsRecovering,
-        CloudIsRecovering,
-      ),
       cloudFailedAt: this.createValueObjectIfDefined(
         updateProps.cloudFailedAt,
         CloudFailedAt,
-      ),
-      runningConfigs: this.createValueObjectIfDefined(
-        updateProps.runningConfigs,
-        RunningConfigs,
       ),
     };
 
@@ -103,9 +89,6 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
   }
 
   active(): void {
-    this.props.liveSignalStatus = new LiveSignalStatus(
-      LiveSignalStatuses.CONNECTED,
-    );
     this.props.isActive = new IsActive(true);
     this.addEvent(
       new NvrActivatedDomainEvent({
@@ -117,10 +100,6 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
 
   inactive(): void {
     this.props.isActive = new IsActive(false);
-    this.props.liveSignalStatus = new LiveSignalStatus(
-      LiveSignalStatuses.CONNECTED,
-    );
-    this.props.runningConfigs = RunningConfigs.init();
     this.addEvent(
       new NvrInActivatedDomainEvent({
         aggregateId: this.id,

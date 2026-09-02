@@ -1,6 +1,5 @@
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
-import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import {
   LiveSignalStatus,
@@ -17,6 +16,7 @@ import { Streams, StreamsProps } from './valueObjects/streams.vo';
 import { Username } from './valueObjects/username.vo';
 
 export interface CameraValueObjects {
+  readonly tenantId: BusinessId;
   name: Name;
   productModel: ProductModel;
   serialNumber: SerialNumber;
@@ -30,10 +30,10 @@ export interface CameraValueObjects {
   nvrId: BusinessId;
   isActive: IsActive;
   liveSignalStatus: LiveSignalStatus;
-  runningConfigs: RunningConfigs;
 }
 
 export interface CameraProps {
+  tenantId: string;
   name: string;
   productModel: string;
   serialNumber: string;
@@ -47,11 +47,11 @@ export interface CameraProps {
   nvrId: string;
   isActive: boolean;
   liveSignalStatus: LiveSignalStatuses;
-  runningConfigs: Record<string, string>;
 }
 
 export interface CreateCameraProps {
   id?: string;
+  tenantId: string;
   name: string;
   productModel: string;
   serialNumber: string;
@@ -68,7 +68,6 @@ export interface CreateCameraProps {
 export interface UpdateCameraProps {
   name?: string;
   liveSignalStatus?: LiveSignalStatuses;
-  runningConfigs?: Record<string, string>;
 }
 
 export enum CameraWebsocketTypes {
@@ -112,6 +111,8 @@ export enum CameraSystemLogDataTypes {
 export type CameraLanguageKeys = {
   camera: {
     actorLog: {
+      created: string;
+      deleted: string;
       activated: string;
       inactivated: string;
       nameUpdated: string;
