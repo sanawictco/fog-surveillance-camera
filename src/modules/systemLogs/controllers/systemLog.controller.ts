@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { SystemLogService } from '../applicationService/services/systemLog.service';
-import { GetAllSystemLogsRequestDto } from '../contracts/getAllSystemLogs.request.dto';
+import { GetAllSystemLogsRequestDto } from '../contracts/systemLog/getAllSystemLogs.request.dto';
 
 @ApiTags('/system-logs')
 @Controller('/system-logs')

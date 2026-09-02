@@ -11,6 +11,7 @@ import {
 } from 'src/dddLib/infra/timeseriesRepository.base';
 import { ObjectExtension } from 'src/dddLib/utils/objectExtension';
 import { TimeSeriesDbExtension } from 'src/dddLib/utils/timeSeriesDbExtension';
+import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import {
   ACTOR_LOG_SUPER_TABLE,
   actorLogColumnNames,
@@ -38,7 +39,7 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
   @Inject(TDENGINE_CLIENT) protected readonly tdengineClient!: WsSql;
   @Inject(TDENGINE_RESTFULL_OPTIONS)
   protected readonly tdengineRestOptions!: TdengineRestOptions;
-  constructor() {}
+  constructor(private readonly serviceProvider: ServiceProvider) {}
   async onApplicationBootstrap() {
     await this.tdengineClient.exec(
       TimeSeriesDbExtension.createSuperTableQuery(
@@ -86,14 +87,14 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
         params as unknown as Record<string, unknown>,
       )
     )
-    return new Promise((resolve) => {
-      setTimeout(async () => {
-        const query = TimeSeriesDbExtension.createFindAllQuery(params);
-        const data = await this.restQuery(query);
-        if (data) resolve(data);
-        else resolve([]);
-      }, 0);
-    });
+      return new Promise((resolve) => {
+        setTimeout(async () => {
+          const query = TimeSeriesDbExtension.createFindAllQuery(params);
+          const data = await this.restQuery(query);
+          if (data) resolve(data);
+          else resolve([]);
+        }, 0);
+      });
   }
 
   async findAllPaginated(
@@ -185,5 +186,31 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
 
   async clearSuperTable(superTableName: string) {
     await this.tdengineClient.exec(`DELETE FROM  ${superTableName};`);
+  }
+
+  async clearDatabase(): Promise<void> {
+    try {
+      const dbName = AppConfig().timeseriesDb.dbName;
+      // Get all supertables
+      const result = await this.tdengineClient.query(
+        `SELECT stable_name FROM information_schema.ins_stables WHERE db_name = '${dbName}'`,
+      );
+
+      const stables = (result as any).data || [];
+
+      // Drop each supertable
+      for (const row of stables) {
+        const stableName = row[0];
+        await this.tdengineClient.exec(
+          `DROP STABLE IF EXISTS ${dbName}.${stableName}`,
+        );
+      }
+
+      this.serviceProvider.logger.log(
+        `Cleared ${stables.length} supertables from ${dbName}`,
+      );
+    } finally {
+      await this.tdengineClient.close();
+    }
   }
 }

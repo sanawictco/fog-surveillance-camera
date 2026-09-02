@@ -3,6 +3,10 @@ import { LanguageKeysBase } from '../languageKeys.base';
 export const englishValues: LanguageKeysBase = {
   nvr: {
     actorLog: {
+      created: 'NVR {0} (serial {1}) was registered',
+      deleted: 'NVR {0} (serial {1}) was deleted',
+      active: 'NVR {0} (serial {1}) was activated',
+      inactive: 'NVR {0} (serial {1}) was deactivated',
       nameUpdated: 'NVR name changed from {0} to {2} (serial {1})',
       passwordUpdated: 'Password changed for NVR {0} (serial {1})',
       langUpdated: {
@@ -25,6 +29,8 @@ export const englishValues: LanguageKeysBase = {
   },
   camera: {
     actorLog: {
+      created: 'Camera {0} was created',
+      deleted: 'Camera {0} was deleted',
       nameUpdated: 'Camera name changed from {0} to {1}',
       activated: 'Camera {0} was activated',
       inactivated: 'Camera {0} was deactivated',

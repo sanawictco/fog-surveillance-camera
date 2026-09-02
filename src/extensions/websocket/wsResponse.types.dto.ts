@@ -1,6 +1,6 @@
 import { CreatePageWsResponseDto } from 'src/modules/dashboard/applicationService/contracts/createPage.wsResponse.dto';
 import { UpdatePageWsResponseDto } from 'src/modules/dashboard/applicationService/contracts/updatePage.wsResponse.dto';
-import { CreateAndSendSystemLogWsResponseDto } from 'src/modules/systemLogs/contracts/createAndSendSystemLog.wsResponse.dto';
+import { CreateAndSendSystemLogWsResponseDto } from 'src/modules/systemLogs/contracts/systemLog/createAndSendSystemLog.wsResponse.dto';
 import { ToConnectedCameraLiveSignalWsResponseDto } from 'src/modules/videoDevices/contracts/camera/websocket/toConnectedCameraLiveSignal.wsResponse.dto';
 import { ToDisconnectedCameraLiveSignalWsResponseDto } from 'src/modules/videoDevices/contracts/camera/websocket/toDisconnectedCameraLiveSignal.wsResponse.dto';
 

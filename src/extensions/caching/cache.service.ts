@@ -182,15 +182,6 @@ export class CacheService<T>
     }
   }
 
-  /**
-   * Best-effort distributed mutex over the cache Redis connection. Single,
-   * non-blocking attempt: returns a unique ownership token on success, or
-   * null if the key is already locked (or Redis is unreachable). Pair every
-   * non-null return with releaseLock(key, token) in a finally. Used to
-   * serialize read-modify-write critical sections (e.g. device runningConfigs)
-   * that would otherwise race across concurrent callers and duplicate the
-   * underlying physical command.
-   */
   async acquireLock(key: string, ttlInSecond: number): Promise<string | null> {
     if (this._isShutDown) return null;
 

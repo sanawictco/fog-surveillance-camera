@@ -11,9 +11,9 @@ import * as dns from 'dns';
 import { MqttService } from 'src/extensions/mqtt/mqtt.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { CloudRecoveryService } from '../cloudRecovery.service';
-import { FindNvrByIdQuery } from 'src/modules/videoDevices/applicatonService/queries/nvr/findNvrById.queryHandler';
+import { FindNvrByIdQuery } from 'src/modules/videoDevices/applicationService/queries/nvr/findNvrById.queryHandler';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
-import { UpdateNvrCommand } from 'src/modules/videoDevices/applicatonService/commands/nvr/updateNvr.command';
+import { UpdateNvrCommand } from 'src/modules/videoDevices/applicationService/commands/nvr/updateNvr.command';
 import {
   IShutdownHandler,
   ShutdownOrchestratorService,

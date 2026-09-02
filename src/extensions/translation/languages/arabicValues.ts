@@ -3,6 +3,10 @@ import { LanguageKeysBase } from '../languageKeys.base';
 export const arabicValues: LanguageKeysBase = {
   nvr: {
     actorLog: {
+      created: 'تم تسجيل جهاز NVR {0} (الرقم التسلسلي {1})',
+      deleted: 'تم حذف جهاز NVR {0} (الرقم التسلسلي {1})',
+      active: 'تم تفعيل جهاز NVR {0} (الرقم التسلسلي {1})',
+      inactive: 'تم تعطيل جهاز NVR {0} (الرقم التسلسلي {1})',
       nameUpdated: 'تم تغيير اسم جهاز NVR من {0} إلى {2} (الرقم التسلسلي {1})',
       passwordUpdated: 'تم تغيير كلمة مرور جهاز NVR {0} (الرقم التسلسلي {1})',
       langUpdated: {
@@ -25,6 +29,8 @@ export const arabicValues: LanguageKeysBase = {
   },
   camera: {
     actorLog: {
+      created: 'تم إنشاء الكاميرا {0}',
+      deleted: 'تم حذف الكاميرا {0}',
       nameUpdated: 'تم تغيير اسم الكاميرا من {0} إلى {1}',
       activated: 'تم تفعيل الكاميرا {0}',
       inactivated: 'تم تعطيل الكاميرا {0}',

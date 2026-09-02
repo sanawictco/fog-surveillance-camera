@@ -3,6 +3,10 @@ import { LanguageKeysBase } from '../languageKeys.base';
 export const kurdiValues: LanguageKeysBase = {
   nvr: {
     actorLog: {
+      created: 'NVRی {0} (زنجیرە {1}) تۆمارکرا',
+      deleted: 'NVRی {0} (زنجیرە {1}) سڕدرایەوە',
+      active: 'NVRی {0} (زنجیرە {1}) چالاککرا',
+      inactive: 'NVRی {0} (زنجیرە {1}) ناچالاککرا',
       nameUpdated: 'ناوی NVR لە {0} بۆ {2} گۆڕا (زنجیرە {1})',
       passwordUpdated: 'وشەی نهێنی NVRی {0} (زنجیرە {1}) گۆڕدرا',
       langUpdated: {
@@ -25,6 +29,8 @@ export const kurdiValues: LanguageKeysBase = {
   },
   camera: {
     actorLog: {
+      created: 'کامێرای {0} دروستکرا',
+      deleted: 'کامێرای {0} سڕدرایەوە',
       nameUpdated: 'ناوی کامێرا لە {0} بۆ {1} گۆڕا',
       activated: 'کامێرای {0} چالاککرا',
       inactivated: 'کامێرای {0} ناچالاککرا',

@@ -21,10 +21,6 @@ export class ActorLogApiService {
     const { messageProps } = actorLogProps;
     let { actorId, actorType, createdAt } = actorLogProps;
     createdAt = createdAt !== undefined ? createdAt : new Date().getTime();
-    console.log(
-      'catch actorLogProps in actorLog================================',
-      actorLogProps,
-    );
     const actorInfo = this.serviceProvider.userInfoService.getNvrAsActorProps();
     actorId = actorId || actorInfo.id;
     actorType = actorType || ActorLogTypes.EMPLOYEE;

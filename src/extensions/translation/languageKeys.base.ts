@@ -10,6 +10,10 @@ export type LanguageKeysBase = OtherLanguageKeys &
 export const LanguageKeys: LanguageKeysBase = {
   nvr: {
     actorLog: {
+      created: 'nvr.actorLog.created',
+      deleted: 'nvr.actorLog.deleted',
+      active: 'nvr.actorLog.active',
+      inactive: 'nvr.actorLog.inactive',
       nameUpdated: 'nvr.actorLog.nameUpdated',
       passwordUpdated: 'nvr.actorLog.passwordUpdated',
       langUpdated: {
@@ -32,9 +36,11 @@ export const LanguageKeys: LanguageKeysBase = {
   },
   camera: {
     actorLog: {
-      activated: 'string',
-      inactivated: 'string',
-      nameUpdated: 'string',
+      created: 'camera.actorLog.created',
+      deleted: 'camera.actorLog.deleted',
+      activated: 'camera.actorLog.activated',
+      inactivated: 'camera.actorLog.inactivated',
+      nameUpdated: 'camera.actorLog.nameUpdated',
     },
     systemLog: {
       disconnected: 'string',

@@ -3,6 +3,10 @@ import { LanguageKeysBase } from '../languageKeys.base';
 export const farsiValues: LanguageKeysBase = {
   nvr: {
     actorLog: {
+      created: 'nvr با نام {0} (سریال {1}) ثبت شد',
+      deleted: 'nvr با نام {0} (سریال {1}) حذف شد',
+      active: 'nvr با نام {0} (سریال {1}) فعال شد',
+      inactive: 'nvr با نام {0} (سریال {1}) غیرفعال شد',
       nameUpdated: 'نام nvr از {0} به {2} (سریال {1}) تغییر یافت',
       passwordUpdated: 'رمز عبور nvr {0} (سریال {1}) تغییر کرد',
       langUpdated: {
@@ -25,6 +29,8 @@ export const farsiValues: LanguageKeysBase = {
   },
   camera: {
     actorLog: {
+      created: 'دوربین با نام {0} ایجاد شد',
+      deleted: 'دوربین با نام {0} حذف شد',
       nameUpdated: 'نام دوربین از {0} به {1} تغییر یافت',
       activated: 'دوربین با نام {0} فعال شد',
       inactivated: 'دوربین با نام {0} غیرفعال شد',
