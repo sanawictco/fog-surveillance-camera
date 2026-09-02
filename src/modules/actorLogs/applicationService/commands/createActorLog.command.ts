@@ -5,10 +5,10 @@ import {
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
 import {
-  ACTOR_LOG_SUPER_TABLE,
   ActorLogRecordFormat,
   ActorLogTypes,
   CreateActorLogProps,
+  assertActorLogTenantId,
   assertActorLogTypes,
 } from 'src/modules/actorLogs/domain/actorLog.type';
 import { ACTOR_LOG_REPOSITORY } from '../../infra/actorLog.diToken';
@@ -20,13 +20,16 @@ export class CreateActorLogCommand
   implements CreateActorLogProps
 {
   createdAt?: number;
+  tenantId: string;
   actorType: ActorLogTypes;
   actorId: string;
   messageProps: ActorLogMessageProps;
   constructor(props: CommandProps<CreateActorLogCommand>) {
     super(props);
+    assertActorLogTenantId(props.tenantId);
     assertActorLogTypes([props.actorType]);
     this.createdAt = props.createdAt;
+    this.tenantId = props.tenantId;
     this.actorType = props.actorType;
     this.actorId = props.actorId;
     this.messageProps = props.messageProps;
@@ -41,18 +44,16 @@ export class CreateActorLogCommandHandler implements ICommandHandler<CreateActor
   ) {}
 
   async execute(command: CreateActorLogCommand): Promise<void> {
-    const createdAt = command.createdAt ?? new Date().getTime();
-    const { actorType, actorId, messageProps } = command;
+    const { tenantId, actorType, actorId, messageProps, createdAt } = command;
     const actorLog: ActorLogRecordFormat = [
-      createdAt,
+      tenantId,
       actorType,
       actorId,
       messageProps,
     ];
     await this.actorLogRepo.insert({
-      superTableName: ACTOR_LOG_SUPER_TABLE,
-      subTableName: command.actorId,
       data: actorLog,
+      createdAt,
     });
   }
 }

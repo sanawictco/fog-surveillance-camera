@@ -1,8 +1,11 @@
-import { Inject, Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { WsSql } from '@tdengine/websocket';
 import axios from 'axios';
 import AppConfig from 'configs/app.config';
-import { PaginatedTimeseriesQueryBase } from 'src/dddLib/applicationService';
+import {
+  OrderStates,
+  PaginatedTimeseriesQueryBase,
+} from 'src/dddLib/applicationService';
 import { Paginated } from 'src/dddLib/infra';
 import {
   CountDataParams,
@@ -12,17 +15,7 @@ import {
 import { ObjectExtension } from 'src/dddLib/utils/objectExtension';
 import { TimeSeriesDbExtension } from 'src/dddLib/utils/timeSeriesDbExtension';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
-import {
-  ACTOR_LOG_SUPER_TABLE,
-  actorLogColumnNames,
-  actorLogColumnTypes,
-} from 'src/modules/actorLogs/domain/actorLog.type';
-import {
-  SYSTEM_LOG_SUPER_TABLE,
-  systemLogColumnNames,
-  systemLogColumnTypes,
-  systemlogSubTableNames,
-} from 'src/modules/systemLogs/domain/systemLog.type';
+
 export interface SuperTableDto {
   superTableName: string;
   rowCount: number;
@@ -35,42 +28,12 @@ export const TDENGINE_CLIENT = Symbol('TDENGINE_CLIENT');
 export const TDENGINE_RESTFULL_OPTIONS = Symbol('TDENGINE_RESTFULL_OPTIONS');
 
 @Injectable()
-export class TimeseriesRepository implements OnApplicationBootstrap {
+export class TimeseriesRepository {
   @Inject(TDENGINE_CLIENT) protected readonly tdengineClient!: WsSql;
   @Inject(TDENGINE_RESTFULL_OPTIONS)
   protected readonly tdengineRestOptions!: TdengineRestOptions;
   constructor(private readonly serviceProvider: ServiceProvider) {}
-  async onApplicationBootstrap() {
-    await this.tdengineClient.exec(
-      TimeSeriesDbExtension.createSuperTableQuery(
-        {
-          superTableName: ACTOR_LOG_SUPER_TABLE,
-          columnNames: actorLogColumnNames,
-          columnDataTypes: actorLogColumnTypes,
-        },
-        45,
-      ),
-    );
-    await this.tdengineClient.exec(
-      TimeSeriesDbExtension.createSuperTableQuery(
-        {
-          superTableName: SYSTEM_LOG_SUPER_TABLE,
-          columnNames: systemLogColumnNames,
-          columnDataTypes: systemLogColumnTypes,
-        },
-        15,
-      ),
-    );
 
-    for (const subTableName of systemlogSubTableNames) {
-      await this.tdengineClient.exec(
-        TimeSeriesDbExtension.createSubTableQuery({
-          superTableName: SYSTEM_LOG_SUPER_TABLE,
-          subTableName,
-        }),
-      );
-    }
-  }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async createSubTable(
     params: CreateSubTableParams,
@@ -87,14 +50,10 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
         params as unknown as Record<string, unknown>,
       )
     )
-      return new Promise((resolve) => {
-        setTimeout(async () => {
-          const query = TimeSeriesDbExtension.createFindAllQuery(params);
-          const data = await this.restQuery(query);
-          if (data) resolve(data);
-          else resolve([]);
-        }, 0);
-      });
+      throw new Error('params in find method is empty');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const query = TimeSeriesDbExtension.createFindAllQuery(params);
+    return await this.restQuery(query);
   }
 
   async findAllPaginated(
@@ -106,31 +65,23 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
       )
     )
       throw new Error('params in find method is empty');
-    return new Promise((resolve) => {
-      setTimeout(async () => {
-        const query = TimeSeriesDbExtension.createFindAllQuery(params);
-        const data: any = await this.restQuery(query);
-        if (data)
-          resolve({
-            totalDocs: await this.count({
-              superTableName: params.superTableName,
-              subTableName: params.subTableName,
-              timeRangeInUnix: params.timeRangeInUnix,
-              filter: params.filter,
-            }),
-            page: params.page,
-            limit: params.limit,
-            docs: data,
-          });
-        else
-          resolve({
-            totalDocs: 0,
-            page: params.page,
-            limit: params.limit,
-            docs: [],
-          });
-      }, 0);
-    });
+    if (!params.orderBy) {
+      params.orderBy = { column: 'createdAt', status: OrderStates.DESCENDING };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const query = TimeSeriesDbExtension.createFindAllQuery(params);
+    const data: any = await this.restQuery(query);
+    return {
+      totalDocs: await this.count({
+        superTableName: params.superTableName,
+        subTableName: params.subTableName,
+        timeRangeInUnix: params.timeRangeInUnix,
+        filter: params.filter,
+      }),
+      page: params.page,
+      limit: params.limit,
+      docs: data,
+    };
   }
 
   async deleteSubTable(subTableName: string) {
@@ -138,6 +89,7 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
       'DROP TABLE IF EXISTS ' + '`' + `${subTableName}` + '`;';
     await this.tdengineClient.exec(dropSqlSubTableCommand);
   }
+
   async count(params: CountDataParams): Promise<number> {
     const { superTableName, subTableName } = params;
     if (superTableName === undefined && subTableName === undefined)
@@ -161,6 +113,10 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
     await this.tdengineClient.exec(`DELETE FROM ${superTableName}`);
   }
 
+  /**
+   * Public: called directly by cloudRecovery.service.ts (time-series backup
+   * export) and deleteNvr.command.ts, not only through this class.
+   */
   async restQuery(query: string) {
     try {
       const response = await axios({
@@ -172,15 +128,13 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
         },
         data: query,
       });
-      if (response.data?.data) {
+      if (Array.isArray(response.data?.data)) {
         return response.data.data;
-      } else {
-        console.log(query);
-        console.log(response.data);
-        throw new Error('returned data from tdengine not valid');
       }
+      throw new Error('returned data from tdengine not valid');
     } catch (err) {
       console.log('restQuery failed => ', err);
+      throw err;
     }
   }
 

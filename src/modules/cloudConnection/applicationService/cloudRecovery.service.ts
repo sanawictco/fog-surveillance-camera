@@ -1,4 +1,8 @@
-import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
 import axios from 'axios';
 import FormData from 'form-data';
 import { spawn } from 'node:child_process';
@@ -10,10 +14,19 @@ import { GLOBAL_ERROR_EVENT } from 'src/utilities/exception.filter';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { MqttEventDataDto } from 'src/extensions/mqtt/dtos/mqttEventData.dto';
 import { CloudConnectionService } from './services/cloudConnection.service';
+import { TimeSeriesDbExtension } from 'src/dddLib/utils/timeSeriesDbExtension';
+import { ACTOR_LOG_REPOSITORY } from 'src/modules/actorLogs/infra/actorLog.diToken';
+import type { ActorLogRepository } from 'src/modules/actorLogs/infra/actorLog.timeseriesRepository';
+import { actorLogSuperTableName } from 'src/modules/actorLogs/domain/actorLog.type';
+import { SYSTEM_LOG_REPOSITORY } from 'src/modules/systemLogs/infra/diToken/systemLog.diToken';
+import type { SystemLogRepository } from 'src/modules/systemLogs/infra/repositories/systemLog.timeseriesRepository';
+import { systemLogSuperTableName } from 'src/modules/systemLogs/domain/systemLog.type';
 
 const BACKUP_ROOT = '/fog_shared_backups';
 const BACKUP_ARCHIVE = `${BACKUP_ROOT}/backups.tar.zst`;
 const MONGO_BACKUP_DIR = `${BACKUP_ROOT}/mongo`;
+const TDENGINE_BACKUP_DIR = `${BACKUP_ROOT}/tdengine`;
+const TDENGINE_BACKUP_FILE = `${TDENGINE_BACKUP_DIR}/dbs.sql`;
 const MONGO_BACKUP_SCRIPT =
   process.env.FOG_MONGO_BACKUP_SCRIPT ??
   join(process.cwd(), 'scripts', 'mongo-backup.sh');
@@ -23,7 +36,13 @@ const RECOVERY_STEP_TIMEOUT_MS = 10 * 60 * 1000;
 export class CloudRecoveryService implements OnApplicationBootstrap {
   static RECOVERY_PROCESS_INITIALIZED = false;
 
-  constructor(private readonly serviceProvider: ServiceProvider) {}
+  constructor(
+    private readonly serviceProvider: ServiceProvider,
+    @Inject(ACTOR_LOG_REPOSITORY)
+    private readonly actorLogRepository: ActorLogRepository,
+    @Inject(SYSTEM_LOG_REPOSITORY)
+    private readonly systemLogRepository: SystemLogRepository,
+  ) {}
 
   onApplicationBootstrap(): void {
     this.serviceProvider.eventEmitter.on(
@@ -38,6 +57,7 @@ export class CloudRecoveryService implements OnApplicationBootstrap {
     try {
       await this.cleanBackup();
       await this.createMongoBackup();
+      await this.createTimeSeriesBackup();
       await this.compressBackup();
       await this.uploadBackup();
     } catch (error) {
@@ -52,9 +72,9 @@ export class CloudRecoveryService implements OnApplicationBootstrap {
       CloudConnectionService.CLOUD_IS_AVAILABLE = true;
       CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED = false;
       await this.cleanBackup();
-      // TDengine is not imported by the Phase 0 cloud compatibility endpoint.
-      // Keep local actor/system logs and cloudFailedAt for the later signed,
-      // tenant-scoped TDengine import instead of acknowledging data not imported.
+      // Acking means the cloud has imported the whole archive, including the
+      // time-series statements; the cloud completes recovery only after both
+      // the Mongo and TDengine imports succeed.
     } catch (error) {
       this.serviceProvider.eventEmitter.emit(GLOBAL_ERROR_EVENT, error);
     }
@@ -63,6 +83,116 @@ export class CloudRecoveryService implements OnApplicationBootstrap {
   private async createMongoBackup(): Promise<void> {
     await fs.promises.mkdir(MONGO_BACKUP_DIR, { recursive: true });
     await this.runCommand('bash', [MONGO_BACKUP_SCRIPT], this.mongoBackupEnv());
+  }
+
+  /**
+   * Exports local actor/system log rows as one v1 INSERT statement per line
+   * into tdengine/dbs.sql — the archive member the cloud tenant-scoped
+   * importer consumes. Export failures are logged and skipped: a mongo-only
+   * archive stays importable and the local logs remain in TDengine for the
+   * next recovery attempt.
+   */
+  private async createTimeSeriesBackup(): Promise<void> {
+    await fs.promises.mkdir(TDENGINE_BACKUP_DIR, { recursive: true });
+    try {
+      const statements = await this.exportTimeSeriesInserts();
+      await fs.promises.writeFile(
+        TDENGINE_BACKUP_FILE,
+        statements.length ? `${statements.join('\n')}\n` : '',
+      );
+    } catch (error) {
+      this.serviceProvider.logger.error(
+        'Fog time-series backup failed; archive continues without it',
+        error,
+      );
+    }
+  }
+
+  /**
+   * Exports rows from fog's own tenant stables in cloud's two-tag insert
+   * form, so the statements replay unchanged against cloud's per-tenant
+   * stables during restore. Severity (`groupId`) lives only as a tag on
+   * system-log rows, so it must be selected explicitly alongside the columns.
+   */
+  private async exportTimeSeriesInserts(): Promise<string[]> {
+    const dbName = AppConfig().timeseriesDb.dbName;
+    const tenantId = AppConfig().tenantId;
+    const actorSuperTable = actorLogSuperTableName(tenantId);
+    const systemSuperTable = systemLogSuperTableName(tenantId);
+    const actorRows = await this.actorLogRepository.restQuery(
+      `SELECT tbname, createdAt, actorLogType, actorId, messageKey, messageParams ` +
+        `FROM ${dbName}.${actorSuperTable}`,
+    );
+    const systemRows = await this.systemLogRepository.restQuery(
+      `SELECT tbname, createdAt, messageKey, messageParams, section, entityId, groupId ` +
+        `FROM ${dbName}.${systemSuperTable}`,
+    );
+    if (!actorRows || !systemRows) {
+      throw new Error('Fog time-series export query failed');
+    }
+    const statements: string[] = [];
+    for (const row of actorRows) {
+      const [tbname, createdAt, actorLogType, actorId, messageKey, messageParams] =
+        row.map(this.exportCellValue);
+      statements.push(
+        `INSERT INTO ${dbName}.\`${tbname}\` ` +
+          `USING ${dbName}.${actorSuperTable} (tenantId, actorId) ` +
+          `TAGS (${TimeSeriesDbExtension.getValuesInsertFormat([tenantId, actorId])}) ` +
+          `VALUES (${this.actorLogValues(createdAt, actorLogType, messageKey, messageParams)});`,
+      );
+    }
+    for (const row of systemRows) {
+      const [tbname, createdAt, messageKey, messageParams, section, entityId, groupId] =
+        row.map(this.exportCellValue);
+      statements.push(
+        `INSERT INTO ${dbName}.\`${tbname}\` ` +
+          `USING ${dbName}.${systemSuperTable} (tenantId, groupId) ` +
+          `TAGS (${TimeSeriesDbExtension.getValuesInsertFormat([tenantId, groupId])}) ` +
+          `VALUES (${this.systemLogValues(createdAt, messageKey, messageParams, section, entityId)});`,
+      );
+    }
+    return statements;
+  }
+
+  private exportCellValue(value: unknown): string {
+    return String(value ?? '')
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/`/g, '');
+  }
+
+  /**
+   * actorId is intentionally absent here: it is a TAG on the stable, not a
+   * stored column (TDengine rejects a tag name that duplicates a column
+   * name), so it is supplied only in the INSERT statement's TAGS clause.
+   */
+  private actorLogValues(
+    createdAt: unknown,
+    actorLogType: unknown,
+    messageKey: unknown,
+    messageParams: unknown,
+  ): string {
+    return TimeSeriesDbExtension.getValuesInsertFormat([
+      Number(createdAt),
+      String(actorLogType ?? ''),
+      String(messageKey ?? ''),
+      String(messageParams ?? ''),
+    ]);
+  }
+
+  private systemLogValues(
+    createdAt: unknown,
+    messageKey: unknown,
+    messageParams: unknown,
+    section: unknown,
+    entityId: unknown,
+  ): string {
+    return TimeSeriesDbExtension.getValuesInsertFormat([
+      Number(createdAt),
+      String(messageKey ?? ''),
+      String(messageParams ?? ''),
+      String(section ?? ''),
+      String(entityId ?? ''),
+    ]);
   }
 
   private mongoBackupEnv(): NodeJS.ProcessEnv {
@@ -87,6 +217,7 @@ export class CloudRecoveryService implements OnApplicationBootstrap {
       '-C',
       BACKUP_ROOT,
       'mongo',
+      'tdengine',
     ]);
   }
 
@@ -110,7 +241,7 @@ export class CloudRecoveryService implements OnApplicationBootstrap {
 
   private async cleanBackup(): Promise<void> {
     await Promise.all(
-      [MONGO_BACKUP_DIR, BACKUP_ARCHIVE].map((target) =>
+      [MONGO_BACKUP_DIR, TDENGINE_BACKUP_DIR, BACKUP_ARCHIVE].map((target) =>
         fs.promises.rm(target, { recursive: true, force: true }),
       ),
     );

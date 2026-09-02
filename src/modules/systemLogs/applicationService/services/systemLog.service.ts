@@ -1,4 +1,5 @@
 import { Inject, Injectable, forwardRef } from '@nestjs/common';
+import AppConfig from 'configs/app.config';
 import { OrderStates } from 'src/dddLib/applicationService';
 import { MqttService } from 'src/extensions/mqtt/mqtt.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
@@ -11,19 +12,19 @@ import { DictionarySections } from 'src/extensions/translation/translator.base';
 import { TranslatorService } from 'src/extensions/translation/translatorService';
 import { WebsocketService } from 'src/extensions/websocket/websocket.service';
 import { CloudRecoveryService } from 'src/modules/cloudConnection/applicationService/cloudRecovery.service';
-import { VideoDevicesApiForSystemLogService } from 'src/modules/videoDevices/applicatonService/services/apiForAnotherServices/videoDevicesApiForSystemLog.service';
+import { VideoDevicesApiForSystemLogService } from 'src/modules/videoDevices/applicationService/services/apiForAnotherServices/videoDevicesApiForSystemLog.service';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { NvrProps } from 'src/modules/videoDevices/domain/nvr/nvr.type';
 import { VideoDeviceEntityTypes } from 'src/modules/videoDevices/shared/videoDeviceEntityTypes';
-import { CreateAndSendSystemLogWsResponseDto } from '../../contracts/createAndSendSystemLog.wsResponse.dto';
+import { CreateAndSendSystemLogWsResponseDto } from '../../contracts/systemLog/createAndSendSystemLog.wsResponse.dto';
 import {
   CreateSystemLogProps,
   SystemLogTypes,
 } from '../../domain/systemLog.type';
 import { SystemLogWebSocketTypes } from '../../shares/systemLogWebSocketTypes.enum';
-import { CreateSystemLogCommand } from '../commands/createSystemLog.command';
-import { DeleteAllSystemLogCommand } from '../commands/deleteAllSystemLog.command';
-import { FindAllPaginatedSystemLogsQuery } from '../queries/findAllPaginatedSystemLogs.queryHandler';
+import { CreateSystemLogCommand } from '../commands/systemLog/createSystemLog.command';
+import { DeleteAllSystemLogCommand } from '../commands/systemLog/deleteAllSystemLog.command';
+import { FindAllPaginatedSystemLogsQuery } from '../queries/systemLog/findAllPaginatedSystemLogs.queryHandler';
 import { CloudConnectionService } from 'src/modules/cloudConnection/applicationService/services/cloudConnection.service';
 
 @Injectable()
@@ -51,6 +52,7 @@ export class SystemLogService {
 
     const systemLogs = await this.serviceProvider.queryBus.execute(
       new FindAllPaginatedSystemLogsQuery({
+        tenantId: AppConfig().tenantId,
         types,
         page,
         limit,
@@ -89,12 +91,12 @@ export class SystemLogService {
 
   deleteSystemLogs(id: string) {
     this.serviceProvider.commandBus.execute(
-      new DeleteAllSystemLogCommand({ id }),
+      new DeleteAllSystemLogCommand({ id, tenantId: AppConfig().tenantId }),
     );
   }
 
   async createAndSend(
-    systemLogProps: Omit<CreateSystemLogProps, 'createdAt'>,
+    systemLogProps: Omit<CreateSystemLogProps, 'createdAt' | 'tenantId'>,
     systemLogWebSocketType: SystemLogWebSocketTypes,
     metadata: {
       configType?: string;
@@ -105,6 +107,7 @@ export class SystemLogService {
   ) {
     const systemLog: CreateSystemLogProps = {
       createdAt: new Date().getTime(),
+      tenantId: AppConfig().tenantId,
       ...systemLogProps,
     };
 

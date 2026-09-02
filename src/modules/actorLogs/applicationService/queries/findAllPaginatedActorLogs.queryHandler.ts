@@ -3,9 +3,24 @@ import { Inject } from '@nestjs/common';
 import { ACTOR_LOG_REPOSITORY } from '../../infra/actorLog.diToken';
 import { ActorLogRepository } from '../../infra/actorLog.timeseriesRepository';
 import { PaginatedTimeseriesQueryBase } from 'src/dddLib/applicationService';
-import { actorLogColumnNames } from '../../domain/actorLog.type';
+import { FindDataParams } from 'src/dddLib/infra/timeseriesRepository.base';
+import { TimeSeriesDbExtension } from 'src/dddLib/utils/timeSeriesDbExtension';
+import {
+  actorLogSelectedColumns,
+  actorLogSuperTableName,
+  assertActorLogTenantId,
+} from '../../domain/actorLog.type';
 
-export class FindAllPaginatedActorLogsQuery extends PaginatedTimeseriesQueryBase {}
+export class FindAllPaginatedActorLogsQuery extends PaginatedTimeseriesQueryBase {
+  tenantId: string;
+  constructor(
+    props: FindDataParams & { page: number; limit: number; tenantId: string },
+  ) {
+    super(props);
+    assertActorLogTenantId(props.tenantId);
+    this.tenantId = props.tenantId;
+  }
+}
 @QueryHandler(FindAllPaginatedActorLogsQuery)
 export class FindAllPaginatedActorLogsQueryHandler implements IQueryHandler<FindAllPaginatedActorLogsQuery> {
   constructor(
@@ -14,8 +29,10 @@ export class FindAllPaginatedActorLogsQueryHandler implements IQueryHandler<Find
   ) {}
 
   async execute(query: FindAllPaginatedActorLogsQuery) {
-    if (!query.selectedColumns) query.selectedColumns = actorLogColumnNames;
-    const records = await this.actorLogRepo.findAll(query);
+    query.superTableName = actorLogSuperTableName(query.tenantId);
+    if (!query.selectedColumns) query.selectedColumns = actorLogSelectedColumns;
+    query.filter = `tenantId=${TimeSeriesDbExtension.quoteStringLiteral(query.tenantId)}`;
+    const records = await this.actorLogRepo.findAllPaginated(query);
     return records;
   }
 }

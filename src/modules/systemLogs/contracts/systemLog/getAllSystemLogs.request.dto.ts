@@ -12,7 +12,7 @@ import {
   isArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SystemLogTypes } from '../domain/systemLog.type';
+import { SystemLogTypes } from '../../domain/systemLog.type';
 
 @ValidatorConstraint({ name: 'checkJsonEngineFormat', async: false })
 export class CheckTypesIsValid implements ValidatorConstraintInterface {

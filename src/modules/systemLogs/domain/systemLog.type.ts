@@ -1,4 +1,7 @@
+import { isUUID } from 'class-validator';
+
 export interface SystemLogProps {
+  tenantId: string;
   createdAt: number;
   type: SystemLogTypes;
   messageProps: SystemLogMessageProps;
@@ -13,6 +16,7 @@ export interface SystemLogMessageProps {
 
 export interface CreateSystemLogProps {
   createdAt?: number;
+  tenantId: string;
   type: SystemLogTypes;
   messageProps: SystemLogMessageProps;
   section: SystemLogSections;
@@ -35,10 +39,16 @@ export interface SystemLogNotifyStatus {
 }
 
 export type SystemLogRecordFormat = [
+  string,
+  SystemLogTypes,
   SystemLogMessageProps,
   SystemLogSections,
   string,
 ];
+export function assertSystemLogTenantId(tenantId: string): void {
+  if (!isUUID(tenantId, '4')) throw new Error('tenantId must be a UUID v4');
+}
+
 export function assertSystemLogTypes(types: SystemLogTypes[]): void {
   if (
     !Array.isArray(types) ||
@@ -48,14 +58,13 @@ export function assertSystemLogTypes(types: SystemLogTypes[]): void {
   }
 }
 
-export const systemlogSubTableNames = ['warning', 'error', 'information'];
-export const SYSTEM_LOG_SUPER_TABLE = 'systemLogSuperTable';
 export const SYSTEM_LOG_EVENT_BUS_LISTENER_PREFIX = 'systemlog_';
 
 export const SYSTEM_LOG_MESSAGE_KEYS_COLUMN_SIZE = 200;
 export const SYSTEM_LOG_MESSAGE_PARAMS_COLUMN_SIZE = 500;
 export const SYSTEM_LOG_SECTION_COLUMN_SIZE = 50;
 export const SYSTEM_LOG_ENTITY_ID_COLUMN_SIZE = 50;
+export const SYSTEM_LOG_TENANT_ID_COLUMN_SIZE = 36;
 
 export const systemLogColumnNames: string[] = [
   'createdAt',
@@ -72,6 +81,37 @@ export const systemLogColumnTypes: string[] = [
   `VARCHAR(${SYSTEM_LOG_SECTION_COLUMN_SIZE})`,
   `VARCHAR(${SYSTEM_LOG_ENTITY_ID_COLUMN_SIZE})`,
 ];
+
+/**
+ * Severity (`groupId`) is a tag, not a column — reads must select it
+ * explicitly alongside the stored columns.
+ */
+export const systemLogSelectedColumns = [...systemLogColumnNames, 'groupId'];
+
+/**
+ * System-log topology (mirrors cloud-surveillance-camera, decision
+ * 2026-08-31): one supertable per tenant and one child table per (tenant,
+ * severity), mirroring actor logs. Names are always derived server-side from
+ * validated UUIDs; clients never provide table names.
+ */
+function tenantTableSuffix(id: string): string {
+  return id.replaceAll('-', '').toLowerCase();
+}
+
+export function systemLogSuperTableName(tenantId: string): string {
+  assertSystemLogTenantId(tenantId);
+  return `system_log_t_${tenantTableSuffix(tenantId)}`;
+}
+
+export function systemLogSubTableName(
+  tenantId: string,
+  type: SystemLogTypes,
+): string {
+  assertSystemLogTenantId(tenantId);
+  assertSystemLogTypes([type]);
+  return `system_log_t_${tenantTableSuffix(tenantId)}_${type}`;
+}
+
 export type SystemLogLanguageKeys = {
   systemLog: {};
 };

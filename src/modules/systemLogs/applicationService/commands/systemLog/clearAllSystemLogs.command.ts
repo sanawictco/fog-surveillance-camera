@@ -1,9 +1,10 @@
 import { Inject } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import AppConfig from 'configs/app.config';
 import { Command } from 'src/dddLib/applicationService/command.base';
-import { SYSTEM_LOG_REPOSITORY } from '../../../infra/diToken/systemLog.diToken';
-import { SYSTEM_LOG_SUPER_TABLE } from '../../../domain/systemLog.type';
-import { SystemLogRepository } from '../../../infra/repositories/systemLog.timeseriesRepository';
+import { SYSTEM_LOG_REPOSITORY } from 'src/modules/systemLogs/infra/diToken/systemLog.diToken';
+import { systemLogSuperTableName } from 'src/modules/systemLogs/domain/systemLog.type';
+import { SystemLogRepository } from 'src/modules/systemLogs/infra/repositories/systemLog.timeseriesRepository';
 
 export class ClearAllSystemLogsCommand extends Command {
   constructor() {
@@ -19,6 +20,8 @@ export class ClearAllSystemLogsCommandHandler implements ICommandHandler<ClearAl
   ) {}
 
   async execute(_command: ClearAllSystemLogsCommand): Promise<void> {
-    await this.actorLogRepo.clearSuperTable(SYSTEM_LOG_SUPER_TABLE);
+    await this.actorLogRepo.clearSuperTable(
+      systemLogSuperTableName(AppConfig().tenantId),
+    );
   }
 }

@@ -6,21 +6,22 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
 import {
   CreateSystemLogProps,
-  SYSTEM_LOG_SUPER_TABLE,
   SystemLogMessageProps,
   SystemLogRecordFormat,
   SystemLogSections,
   SystemLogTypes,
+  assertSystemLogTenantId,
   assertSystemLogTypes,
 } from 'src/modules/systemLogs/domain/systemLog.type';
-import { SYSTEM_LOG_REPOSITORY } from '../../infra/diToken/systemLog.diToken';
-import { SystemLogRepository } from '../../infra/repositories/systemLog.timeseriesRepository';
+import { SYSTEM_LOG_REPOSITORY } from 'src/modules/systemLogs/infra/diToken/systemLog.diToken';
+import { SystemLogRepository } from 'src/modules/systemLogs/infra/repositories/systemLog.timeseriesRepository';
 
 export class CreateSystemLogCommand
   extends Command
   implements CreateSystemLogProps
 {
   createdAt?: number;
+  tenantId: string;
   entityId: string;
   type: SystemLogTypes;
   messageProps: SystemLogMessageProps;
@@ -28,8 +29,10 @@ export class CreateSystemLogCommand
 
   constructor(props: CommandProps<CreateSystemLogCommand>) {
     super(props);
+    assertSystemLogTenantId(props.tenantId);
     assertSystemLogTypes([props.type]);
     this.createdAt = props.createdAt;
+    this.tenantId = props.tenantId;
     this.type = props.type;
     this.messageProps = props.messageProps;
     this.section = props.section;
@@ -45,12 +48,18 @@ export class CreateSystemLogCommandHandler implements ICommandHandler<CreateSyst
   ) {}
 
   async execute(command: CreateSystemLogCommand): Promise<void> {
-    const { type, messageProps, section, entityId } = command;
-    const systemLog: SystemLogRecordFormat = [messageProps, section, entityId];
+    const { tenantId, type, messageProps, section, entityId, createdAt } =
+      command;
+    const systemLog: SystemLogRecordFormat = [
+      tenantId,
+      type,
+      messageProps,
+      section,
+      entityId,
+    ];
     await this.systemLogRepo.insert({
-      superTableName: SYSTEM_LOG_SUPER_TABLE,
-      subTableName: type,
       data: systemLog,
+      createdAt,
     });
   }
 }

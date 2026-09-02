@@ -1,6 +1,6 @@
 import { WebsocketMsgBaseDto } from 'src/extensions/websocket/websocket.service';
-import { SystemLogWebSocketTypes } from '../shares/systemLogWebSocketTypes.enum';
-import { CreateSystemLogProps } from '../domain/systemLog.type';
+import { SystemLogWebSocketTypes } from '../../shares/systemLogWebSocketTypes.enum';
+import { CreateSystemLogProps } from '../../domain/systemLog.type';
 
 export interface CreateAndSendSystemLogWsResponseDto extends WebsocketMsgBaseDto {
   type: SystemLogWebSocketTypes;

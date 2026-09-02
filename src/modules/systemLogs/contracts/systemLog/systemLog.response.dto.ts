@@ -3,7 +3,7 @@ import {
   SystemLogNotifyStatus,
   SystemLogSections,
   SystemLogTypes,
-} from '../domain/systemLog.type';
+} from '../../domain/systemLog.type';
 
 export class SystemLogResponseDto extends ResponseBase {
   type!: SystemLogTypes;

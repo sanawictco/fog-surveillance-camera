@@ -37,10 +37,16 @@ export class CreateSuperTableParams {
 export class CreateSubTableParams {
   superTableName: string;
   subTableName: string;
+  tags: Array<{ name: string; value: string }>;
 
-  constructor(superTableName: string, subTableName: string) {
+  constructor(
+    superTableName: string,
+    subTableName: string,
+    tags: Array<{ name: string; value: string }>,
+  ) {
     this.superTableName = superTableName;
     this.subTableName = subTableName;
+    this.tags = tags;
   }
 }
 

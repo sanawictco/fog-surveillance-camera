@@ -40,15 +40,23 @@ export class TimeSeriesDbExtension {
     return createSuperTableSqlCommand;
   }
 
+  /**
+   * Creates one child table under a stable with explicit tag name/value pairs,
+   * e.g. `(tenantId, actorId)` / `(tenantId, groupId)`. Tag values are quoted
+   * through the same escaper insert values use.
+   */
   static createSubTableQuery(params: CreateSubTableParams): string {
-    let { superTableName } = params;
-    const { subTableName } = params;
-    superTableName = this.toValidSuperOrSubTableName(superTableName);
+    const { subTableName, tags } = params;
+    const superTableName = this.toValidSuperOrSubTableName(params.superTableName);
+    const tagNames = tags
+      .map((tag) => this.toValidSuperOrSubTableName(tag.name))
+      .join(', ');
+    const tagValues = this.getValuesInsertFormat(tags.map((tag) => tag.value));
     const sqlCommand =
       'CREATE TABLE IF NOT EXISTS `' +
       `${subTableName}` +
       '`' +
-      ` USING ${superTableName} TAGS ("${subTableName}");`;
+      ` USING ${superTableName} (${tagNames}) TAGS (${tagValues});`;
     return sqlCommand;
   }
 

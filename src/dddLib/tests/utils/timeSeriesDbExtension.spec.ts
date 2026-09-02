@@ -48,6 +48,23 @@ describe('TimeSeriesDbExtension time ranges', () => {
   });
 });
 
+describe('TimeSeriesDbExtension.createSubTableQuery', () => {
+  it('creates a child table with explicit tag name/value pairs', () => {
+    const query = TimeSeriesDbExtension.createSubTableQuery({
+      superTableName: 'actor_log_t_1111',
+      subTableName: 'actor_log_t_1111_0000',
+      tags: [
+        { name: 'tenantId', value: '1111' },
+        { name: 'actorId', value: '0000' },
+      ],
+    });
+    expect(query).toBe(
+      'CREATE TABLE IF NOT EXISTS `actor_log_t_1111_0000` ' +
+        "USING actor_log_t_1111 (tenantId, actorId) TAGS ( '1111', '0000');",
+    );
+  });
+});
+
 describe('TimeSeriesDbExtension.quoteStringLiteral', () => {
   it('doubles single quotes so a value cannot terminate the literal', () => {
     expect(TimeSeriesDbExtension.quoteStringLiteral("it's")).toBe("'it''s'");

@@ -5,12 +5,20 @@ import {
 } from 'src/dddLib/applicationService/command.base';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
-import { SYSTEM_LOG_REPOSITORY } from '../../infra/diToken/systemLog.diToken';
-import { SystemLogRepository } from '../../infra/repositories/systemLog.timeseriesRepository';
+import { assertSystemLogTenantId } from 'src/modules/systemLogs/domain/systemLog.type';
+import { SYSTEM_LOG_REPOSITORY } from 'src/modules/systemLogs/infra/diToken/systemLog.diToken';
+import { SystemLogRepository } from 'src/modules/systemLogs/infra/repositories/systemLog.timeseriesRepository';
 
 export class DeleteAllSystemLogCommand extends Command {
-  constructor(props: CommandProps<DeleteAllSystemLogCommand> & IdType) {
+  readonly tenantId: string;
+
+  constructor(
+    props: CommandProps<DeleteAllSystemLogCommand> &
+      IdType & { tenantId: string },
+  ) {
     super(props);
+    assertSystemLogTenantId(props.tenantId);
+    this.tenantId = props.tenantId;
   }
 }
 
@@ -22,6 +30,6 @@ export class DeleteAllSystemLogCommandHandler implements ICommandHandler<DeleteA
   ) {}
 
   async execute(command: DeleteAllSystemLogCommand): Promise<void> {
-    await this.systemLogRepo.deleteAll(command.id);
+    await this.systemLogRepo.deleteAll(command.tenantId, command.id);
   }
 }

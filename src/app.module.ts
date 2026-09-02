@@ -22,6 +22,7 @@ import { CloudConnectionModule } from './modules/cloudConnection/cloudConnection
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ActorLogModule } from './modules/actorLogs/actorLog.module';
 import { VideoDevicesModule } from './modules/videoDevices/videoDevices.module';
+import { SystemMonitorModule } from './modules/systemMonitor/systemMonitor.module';
 import AppConfig from 'configs/app.config';
 import {
   TDENGINE_CLIENT,
@@ -55,6 +56,7 @@ import { sqlConnect, WSConfig, type WsSql } from '@tdengine/websocket';
     DashboardModule,
     forwardRef(() => ActorLogModule),
     forwardRef(() => VideoDevicesModule),
+    SystemMonitorModule,
   ],
   controllers: [AppController],
   providers: [
