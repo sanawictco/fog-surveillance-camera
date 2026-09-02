@@ -8,18 +8,20 @@ import { AggregateID } from 'src/dddLib/core';
 import { PageEntity } from '../../domain/page.entity';
 import { CreatePageProps } from '../../domain/page.type';
 import { PageTypes } from '../../domain/valueObjects/pageType.vo';
-import { PAGE_REPOSITORY } from '../../infra/diTokens/page.diToken';
-import { PageRepository } from '../../infra/repositories/page.repository';
+import { PAGE_REPOSITORY } from '../../infra/page.diToken';
+import { PageRepository } from '../../infra/page.repository';
 import { PageActorLogService } from '../services/pageActorLog.service';
 
 export class CreatePageCommand extends Command implements CreatePageProps {
-  readonly generatedIdFromCloud?: string;
+  readonly originId?: string;
+  readonly tenantId: string;
   readonly name: string;
   readonly nvrId: string;
   readonly type: PageTypes;
   constructor(props: CommandProps<CreatePageCommand>) {
     super(props);
-    this.generatedIdFromCloud = props.generatedIdFromCloud;
+    this.originId = props.originId;
+    this.tenantId = props.tenantId;
     this.name = props.name;
     this.nvrId = props.nvrId;
     this.type = props.type;
@@ -39,21 +41,20 @@ export class CreatePageCommandHandler implements ICommandHandler<CreatePageComma
       pageIndex: { $max: '$pageIndex' },
     });
     const pageEntity = PageEntity.create({
-      generatedIdFromCloud: command.generatedIdFromCloud,
+      originId: command.originId,
+      tenantId: command.tenantId,
       name: command.name,
       nvrId: command.nvrId,
       pageIndex: maxPageIndexQuery[0] ? maxPageIndexQuery[0].pageIndex + 1 : 0,
       type: command.type,
     });
     await this.pageRepo.insert(pageEntity);
-    const actorId = command.actorProps?.actorId;
-    await this.processDependencies(pageEntity, actorId);
+    await this.processDependencies(pageEntity);
     return pageEntity.id;
   }
-  private async processDependencies(pageEntity: PageEntity, actorId?: string) {
+  private async processDependencies(pageEntity: PageEntity) {
     await this.pageActorLogService.create({
       pageEntity,
-      actorId,
     });
   }
 }

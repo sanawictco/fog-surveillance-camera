@@ -9,10 +9,10 @@ import {
 } from 'src/dddLib/applicationService/command.base';
 import { AggregateID } from 'src/dddLib/core';
 import { PageEntity } from '../../domain/page.entity';
-import { UpdatePageProps } from '../../domain/page.type';
+import { PageProps, UpdatePageProps } from '../../domain/page.type';
 import { Widget } from '../../domain/valueObjects/pageContent.vo';
-import { PAGE_REPOSITORY } from '../../infra/diTokens/page.diToken';
-import { PageRepository } from '../../infra/repositories/page.repository';
+import { PAGE_REPOSITORY } from '../../infra/page.diToken';
+import { PageRepository } from '../../infra/page.repository';
 import { PageActorLogService } from '../services/pageActorLog.service';
 
 export class UpdatePageCommand
@@ -22,7 +22,6 @@ export class UpdatePageCommand
   readonly name?: string;
   readonly pageIndex?: number;
   readonly content?: Widget[];
-  readonly runningConfigs?: Record<string, string>;
 
   constructor(props: CommandProps<UpdatePageCommand> & IdType) {
     super(props);
@@ -41,13 +40,16 @@ export class UpdatePageCommandHandler implements ICommandHandler<UpdatePageComma
   ) {}
 
   async execute(command: UpdatePageCommand): Promise<AggregateID> {
+    let pageEntity: PageEntity | undefined = await this.pageRepo.findById(
+      command.id,
+    );
+    if (!pageEntity) throw new BadRequestException('not exists');
+    const previousProps = pageEntity.getProps(); // snapshot before mutation
     if (command.pageIndex !== undefined) {
       const pageEntities: PageEntity[] = await this.pageRepo.findAll({
         orderBy: { column: 'pageIndex', status: OrderStates.ASCENDING },
       });
-      const pageEntity: PageEntity | undefined = pageEntities.find(
-        (page) => page.id === command.id,
-      );
+      pageEntity = pageEntities.find((page) => page.id === command.id);
       if (!pageEntity) throw new BadRequestException('not exists');
       const newPageIndex = command.pageIndex;
       const currPageIndex = pageEntity.getProps().pageIndex;
@@ -60,36 +62,45 @@ export class UpdatePageCommandHandler implements ICommandHandler<UpdatePageComma
         }
       }
     }
-    const pageEntity: PageEntity | undefined = await this.pageRepo.findById(
-      command.id,
-    );
+    pageEntity = await this.pageRepo.findById(command.id);
     if (!pageEntity) throw new BadRequestException('not exists');
 
     const updateObj = {
       name: command.name,
       content: command.content,
     };
-    const currentOrOldName = pageEntity.getProps().name;
     pageEntity.update(updateObj);
     await this.pageRepo.update(pageEntity);
     await this.processDependencies({
       pageEntity,
-      currentOrOldName,
-      updateObj,
+      previousProps,
+      command,
     });
     return command.id;
   }
+
   private async processDependencies(props: {
     pageEntity: PageEntity;
-    currentOrOldName: string;
-    updateObj: any;
+    previousProps: PageProps;
+    command: UpdatePageCommand;
   }) {
-    const { currentOrOldName, pageEntity, updateObj } = props;
+    const { previousProps, command, pageEntity } = props;
+    const { name, content } = command;
+
+    const changedProps: Partial<UpdatePageProps> = {
+      ...(name !== undefined && name !== previousProps.name && { name }),
+      ...(content !== undefined &&
+        JSON.stringify(content) !== JSON.stringify(previousProps.content) && {
+          content,
+        }),
+    };
+
+    if (!Object.keys(changedProps).length) return;
     await this.pageActorLogService.update({
-      pageEntity: pageEntity,
+      pageEntity,
       updatePageProps: {
-        currentOrOldName,
-        updatedProps: updateObj,
+        currentOrOldName: previousProps.name,
+        updatedProps: changedProps,
       },
     });
   }

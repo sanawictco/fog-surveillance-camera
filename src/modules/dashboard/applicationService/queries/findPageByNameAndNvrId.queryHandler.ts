@@ -1,28 +1,28 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
-import { PAGE_REPOSITORY } from '../../infra/diTokens/page.diToken';
-import { PageRepository } from '../../infra/repositories/page.repository';
+import { PAGE_REPOSITORY } from '../../infra/page.diToken';
+import { PageRepository } from '../../infra/page.repository';
 
-export class FindPageByNameAndGatewayIdQuery {
+export class FindPageByNameAndNvrIdQuery {
   constructor(
     public readonly name: string,
-    public readonly gatewayId: string,
+    public readonly nvrId: string,
   ) {
     this.name = name;
-    this.gatewayId = gatewayId;
+    this.nvrId = nvrId;
   }
 }
-@QueryHandler(FindPageByNameAndGatewayIdQuery)
-export class FindPageByNameAndGatewayIdQueryHandler implements IQueryHandler<FindPageByNameAndGatewayIdQuery> {
+@QueryHandler(FindPageByNameAndNvrIdQuery)
+export class FindPageByNameAndNvrIdQueryHandler implements IQueryHandler<FindPageByNameAndNvrIdQuery> {
   constructor(
     @Inject(PAGE_REPOSITORY)
     protected readonly pageRepo: PageRepository,
   ) {}
 
-  async execute(query: FindPageByNameAndGatewayIdQuery) {
+  async execute(query: FindPageByNameAndNvrIdQuery) {
     const record = await this.pageRepo.findOne({
       name: query.name,
-      gatewayId: query.gatewayId,
+      nvrId: query.nvrId,
     });
     return record;
   }

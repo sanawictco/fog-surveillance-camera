@@ -1,7 +1,7 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
-import { PAGE_REPOSITORY } from '../../infra/diTokens/page.diToken';
-import { PageRepository } from '../../infra/repositories/page.repository';
+import { PAGE_REPOSITORY } from '../../infra/page.diToken';
+import { PageRepository } from '../../infra/page.repository';
 
 export class FindPageByNameQuery {
   constructor(public readonly name: string) {

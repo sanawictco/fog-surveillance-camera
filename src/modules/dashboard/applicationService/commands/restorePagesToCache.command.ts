@@ -2,8 +2,8 @@ import { Inject } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { AggregateID } from 'src/dddLib/core';
 import { Command } from 'src/dddLib/applicationService/command.base';
-import { PAGE_REPOSITORY } from '../../infra/diTokens/page.diToken';
-import { PageRepository } from '../../infra/repositories/page.repository';
+import { PAGE_REPOSITORY } from '../../infra/page.diToken';
+import { PageRepository } from '../../infra/page.repository';
 
 export class RestorePagesToCacheCommand extends Command {
   constructor() {
