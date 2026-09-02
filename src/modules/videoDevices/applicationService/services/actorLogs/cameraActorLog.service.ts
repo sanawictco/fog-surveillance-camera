@@ -9,29 +9,38 @@ export class CameraActorLogService {
 
   async update(_props: {
     cameraEntity: CameraEntity;
-    actorId?: string;
     updateCameraProps: {
       currentOrOldName: string;
       updatedProps: UpdateCameraRequestDto;
     };
-  }): Promise<void> {}
+  }) {
+    const { cameraEntity, updateCameraProps } = _props;
+    await this.actorLogApiService.registerActorLog({
+      messageProps: {
+        key: LanguageKeys.camera.actorLog.nameUpdated,
+        params: [
+          updateCameraProps.currentOrOldName,
+          cameraEntity.getProps().serialNumber,
+          updateCameraProps.updatedProps.name,
+        ],
+      },
+    });
+  }
 
-  async active(props: { cameraEntity: CameraEntity; actorId?: string }) {
-    const { cameraEntity, actorId } = props;
+  async active(props: { cameraEntity: CameraEntity }) {
+    const { cameraEntity } = props;
     const { name } = cameraEntity.getProps();
     await this.actorLogApiService.registerActorLog({
-      actorId,
       messageProps: {
         key: LanguageKeys.camera.actorLog.activated,
         params: [name],
       },
     });
   }
-  async inactive(props: { cameraEntity: CameraEntity; actorId?: string }) {
-    const { cameraEntity, actorId } = props;
+  async inactive(props: { cameraEntity: CameraEntity }) {
+    const { cameraEntity } = props;
     const { name } = cameraEntity.getProps();
     await this.actorLogApiService.registerActorLog({
-      actorId,
       messageProps: {
         key: LanguageKeys.camera.actorLog.inactivated,
         params: [name],

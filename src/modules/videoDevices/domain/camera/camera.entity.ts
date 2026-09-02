@@ -40,7 +40,7 @@ export class CameraEntity extends AggregateRoot<
   declare protected readonly _id: AggregateID;
   static create(createCameraProps: CreateCameraProps): CameraEntity {
     let id;
-    if (createCameraProps.id) id = createCameraProps.id;
+    if (createCameraProps.originId) id = createCameraProps.originId;
     else id = v4();
     const {
       name,

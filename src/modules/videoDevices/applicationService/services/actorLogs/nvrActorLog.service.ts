@@ -15,13 +15,12 @@ export class NvrActorLogService {
 
   async update(props: {
     nvrEntity: NvrEntity;
-    actorId?: string;
     updatedNvrProps: {
       currentOrOldName: string;
       updatedProps: UpdateNvrRequestDto;
     };
   }) {
-    const { nvrEntity, actorId, updatedNvrProps } = props;
+    const { nvrEntity, updatedNvrProps } = props;
     const { serialNumber } = nvrEntity.getProps();
     const { updatedProps, currentOrOldName } = updatedNvrProps;
     const newName = updatedProps.name;
@@ -29,7 +28,6 @@ export class NvrActorLogService {
     const newLang = updatedProps.lang;
     if (newName) {
       await this.actorLogApiService.registerActorLog({
-        actorId,
         messageProps: {
           key: LanguageKeys.nvr.actorLog.nameUpdated,
           params: [currentOrOldName, serialNumber, newName],
@@ -38,7 +36,6 @@ export class NvrActorLogService {
     }
     if (newPassword) {
       await this.actorLogApiService.registerActorLog({
-        actorId,
         messageProps: {
           key: LanguageKeys.nvr.actorLog.passwordUpdated,
           params: [currentOrOldName, serialNumber],
@@ -60,7 +57,6 @@ export class NvrActorLogService {
         messageProps.key = LanguageKeys.nvr.actorLog.langUpdated.toKu;
 
       await this.actorLogApiService.registerActorLog({
-        actorId,
         messageProps,
       });
     }

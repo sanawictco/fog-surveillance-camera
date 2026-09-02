@@ -1,13 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { Mapper } from 'src/dddLib/infra';
-import { PageEntity } from '../../domain/page.entity';
-import { PageContent } from '../../domain/valueObjects/pageContent.vo';
-import { PageIndex } from '../../domain/valueObjects/pageIndex.vo';
-import { PageModel } from '../schemas/page.schema';
-import { PageResponseDto } from '../../applicationService/contracts/page.response.dto';
-import { Page } from '../../domain/valueObjects/pageType.vo';
-import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
+import { PageEntity } from '../domain/page.entity';
+import { PageContent } from '../domain/valueObjects/pageContent.vo';
+import { PageIndex } from '../domain/valueObjects/pageIndex.vo';
+import { PageModel } from './page.schema';
+import { PageResponseDto } from '../applicationService/contracts/page.response.dto';
+import { Page } from '../domain/valueObjects/pageType.vo';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
 
 /**
@@ -27,12 +26,12 @@ export class PageMapper implements Mapper<
     const copy = entity.getProps();
     const record: PageModel = {
       id: copy.id,
+      tenantId: copy.tenantId,
       name: copy.name,
       nvrId: copy.id,
       type: copy.type,
       pageIndex: copy.pageIndex,
       content: copy.content,
-      runningConfigs: copy.runningConfigs,
       createdAt: copy.createdAt,
       updatedAt: copy.updatedAt,
     };
@@ -45,12 +44,12 @@ export class PageMapper implements Mapper<
       createdAt: new Date(record.createdAt),
       updatedAt: new Date(record.updatedAt),
       props: {
+        tenantId: new BusinessId(record.tenantId),
         name: new Name(record.name),
         nvrId: new BusinessId(record.nvrId),
         type: new Page(record.type),
         pageIndex: new PageIndex(record.pageIndex),
         content: new PageContent(record.content),
-        runningConfigs: new RunningConfigs(record.runningConfigs),
       },
     });
     return entity;

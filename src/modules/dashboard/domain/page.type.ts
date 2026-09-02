@@ -3,28 +3,28 @@ import { Page, PageTypes } from './valueObjects/pageType.vo';
 import { PageIndex } from './valueObjects/pageIndex.vo';
 import { PageContent, Widget } from './valueObjects/pageContent.vo';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
-import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 
 export interface PageValueObjects {
+  tenantId: BusinessId;
   name: Name;
   nvrId: BusinessId;
   type: Page;
   pageIndex: PageIndex;
   content: PageContent;
-  runningConfigs: RunningConfigs; // not used in fog but only for cloud recovery scenario (have sync schema in cloud and fog)
 }
 
 export interface PageProps {
+  tenantId: string;
   name: string;
   nvrId: string;
   type: PageTypes;
   pageIndex: number;
   content: Widget[];
-  runningConfigs: Record<string, string>;
 }
 
 export interface CreatePageProps {
-  generatedIdFromCloud?: string;
+  originId?: string;
+  tenantId: string;
   name: string;
   type: PageTypes;
   nvrId: string;

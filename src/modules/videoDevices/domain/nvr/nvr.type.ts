@@ -13,6 +13,7 @@ import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { MaxCameras } from './valueObjects/maxCameras.vo';
 import { CloudFailedAt } from './valueObjects/cloudFailedAt.vo';
 import { ProductModel } from '../camera/valueObjects/productModel.vo';
+import { AggregateID } from 'src/dddLib/core';
 
 export interface NvrValueObjects {
   name: Name;
@@ -43,12 +44,13 @@ export interface NvrProps {
 }
 
 export interface CreateNvrProps {
-  name: string;
+  readonly id: AggregateID;
   readonly tenantId: string;
   readonly serialNumber: string;
   readonly accessToken: string;
   readonly maxCameras: number;
   readonly productModel: string;
+  name: string;
   password: string;
 }
 

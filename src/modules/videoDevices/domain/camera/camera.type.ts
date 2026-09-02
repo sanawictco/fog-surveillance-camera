@@ -50,7 +50,7 @@ export interface CameraProps {
 }
 
 export interface CreateCameraProps {
-  id?: string;
+  originId?: string;
   tenantId: string;
   name: string;
   productModel: string;

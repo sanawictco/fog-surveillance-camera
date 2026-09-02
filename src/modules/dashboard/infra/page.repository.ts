@@ -4,11 +4,11 @@ import { Model } from 'mongoose';
 import { RepositoryBase } from 'src/dddLib/infra';
 import { CacheService } from 'src/extensions/caching/cache.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
-import { PageResponseDto } from '../../applicationService/contracts/page.response.dto';
-import { PageEntity } from '../../domain/page.entity';
-import { PageValueObjects } from '../../domain/page.type';
-import { PageMapper } from '../mappers/page.mapper';
-import { PageModel } from '../schemas/page.schema';
+import { PageResponseDto } from '../applicationService/contracts/page.response.dto';
+import { PageEntity } from '../domain/page.entity';
+import { PageValueObjects } from '../domain/page.type';
+import { PageMapper } from './page.mapper';
+import { PageModel } from './page.schema';
 import { ParentRepository } from 'src/modules/shared/parent.repository';
 
 @Injectable()

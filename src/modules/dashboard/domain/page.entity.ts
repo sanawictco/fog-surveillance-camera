@@ -16,26 +16,24 @@ import { PageUpdatedDomainEvent } from './events/pageUpdated.domainEvent';
 import { PageDeletedDomainEvent } from './events/pageDeleted.domainEvent';
 import AppConfig from 'configs/app.config';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
-import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 
 export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
   declare protected readonly _id: AggregateID;
   static create(createPageProps: CreatePageProps): PageEntity {
     let id;
-    if (createPageProps.generatedIdFromCloud)
-      id = createPageProps.generatedIdFromCloud;
+    if (createPageProps.originId) id = createPageProps.originId;
     else id = v4();
     let pageIndex: number;
     if (createPageProps.pageIndex) pageIndex = createPageProps.pageIndex;
     else pageIndex = 0;
     const props: PageValueObjects = {
       ...createPageProps,
+      tenantId: new BusinessId(createPageProps.tenantId),
       name: new Name(createPageProps.name),
       nvrId: new BusinessId(createPageProps.nvrId),
       type: new Page(createPageProps.type),
       pageIndex: new PageIndex(pageIndex),
       content: new PageContent([]),
-      runningConfigs: RunningConfigs.init(),
     };
     const pageEntity = new PageEntity({ id, props });
     pageEntity.addEvent(
