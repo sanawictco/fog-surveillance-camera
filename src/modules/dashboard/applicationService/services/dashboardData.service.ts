@@ -1,6 +1,6 @@
 import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { SendDataRequestDto } from '../contracts/sendData.request.dto';
-import { VideoDevicesApiForDashboardService } from 'src/modules/videoDevices/applicatonService/services/apiForAnotherServices/videoDeviceApiForDashboard.service';
+import { VideoDevicesApiForDashboardService } from 'src/modules/videoDevices/applicationService/services/apiForAnotherServices/videoDeviceApiForDashboard.service';
 
 @Injectable()
 export class DashboardDataService {

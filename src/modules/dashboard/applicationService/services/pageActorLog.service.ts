@@ -7,11 +7,9 @@ import { UpdatePageRequestDto } from '../contracts/updatePage.request.dto';
 @Injectable()
 export class PageActorLogService {
   constructor(private readonly actorLogApiService: ActorLogApiService) {}
-  async create(props: { pageEntity: PageEntity; actorId?: string }) {
-    const { actorId } = props;
+  async create(props: { pageEntity: PageEntity }) {
     const { name } = props.pageEntity.getProps();
     await this.actorLogApiService.registerActorLog({
-      actorId,
       messageProps: {
         key: LanguageKeys.dashboard.actorLog.created,
         params: [name],
@@ -20,19 +18,16 @@ export class PageActorLogService {
   }
   async update(props: {
     pageEntity: PageEntity;
-    actorId?: string;
     updatePageProps: {
       currentOrOldName: string;
       updatedProps: UpdatePageRequestDto;
     };
   }) {
-    const { actorId } = props;
     const { currentOrOldName, updatedProps } = props.updatePageProps;
     const { name, destIndex, content } = updatedProps;
 
     if (name) {
       await this.actorLogApiService.registerActorLog({
-        actorId,
         messageProps: {
           key: LanguageKeys.dashboard.actorLog.nameUpdated,
           params: [currentOrOldName, name],
@@ -41,7 +36,6 @@ export class PageActorLogService {
     }
     if (destIndex) {
       await this.actorLogApiService.registerActorLog({
-        actorId,
         messageProps: {
           key: LanguageKeys.dashboard.actorLog.pageIndexUpdated,
           params: [currentOrOldName],
@@ -50,24 +44,11 @@ export class PageActorLogService {
     }
     if (content) {
       await this.actorLogApiService.registerActorLog({
-        actorId,
         messageProps: {
           key: LanguageKeys.dashboard.actorLog.contentUpdated,
           params: [currentOrOldName],
         },
       });
     }
-  }
-
-  async delete(props: { pageEntity: PageEntity; actorId?: string }) {
-    const { actorId } = props;
-    const { name } = props.pageEntity.getProps();
-    await this.actorLogApiService.registerActorLog({
-      actorId,
-      messageProps: {
-        key: LanguageKeys.dashboard.actorLog.deleted,
-        params: [name],
-      },
-    });
   }
 }

@@ -13,17 +13,17 @@ import { UpdatePageCommandHandler } from './applicationService/commands/updatePa
 import { FindAllPagesQueryHandler } from './applicationService/queries/findAllPages.queryHandler';
 import { FindPageByIdQueryHandler } from './applicationService/queries/findPageById.queryHandler';
 import { FindPageByNameQueryHandler } from './applicationService/queries/findPageByName.queryHandler';
-import { FindPageByNameAndGatewayIdQueryHandler } from './applicationService/queries/findPageByNameAndGatewayId.queryHandler';
+import { FindPageByNameAndNvrIdQueryHandler } from './applicationService/queries/findPageByNameAndNvrId.queryHandler';
 import { PagesHttpService } from './applicationService/services/page.http.service';
 import { PageActorLogService } from './applicationService/services/pageActorLog.service';
-import { PageMapper } from './infra/mappers/page.mapper';
-import { PAGE_REPOSITORY } from './infra/diTokens/page.diToken';
-import { PageRepository } from './infra/repositories/page.repository';
+import { PageMapper } from './infra/page.mapper';
+import { PAGE_REPOSITORY } from './infra/page.diToken';
+import { PageRepository } from './infra/page.repository';
 import { PageHttpController } from './controllers/page.http.controller';
 import { PageValidator } from './applicationService/services/page.validator';
 import { ActorLogModule } from '../actorLogs/actorLog.module';
 import { MongooseModule } from '@nestjs/mongoose';
-import { PageModel, PageSchema } from './infra/schemas/page.schema';
+import { PageModel, PageSchema } from './infra/page.schema';
 import { PageMqttController } from './controllers/page.mqtt.controller';
 import { PageMqttService } from './applicationService/services/page.mqtt.service';
 import { DashboardCloudCommunicationService } from './applicationService/services/dashboardCloudCommunicationService';
@@ -45,7 +45,7 @@ const queryHandlers: Provider[] = [
     FindAllPagesQueryHandler,
     FindPageByIdQueryHandler,
     FindPageByNameQueryHandler,
-    FindPageByNameAndGatewayIdQueryHandler,
+    FindPageByNameAndNvrIdQueryHandler,
   ],
 ];
 const repositories: Provider[] = [

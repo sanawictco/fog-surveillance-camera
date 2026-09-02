@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { PageEntity } from '../../domain/page.entity';
 import { FindPageByIdQuery } from '../queries/findPageById.queryHandler';
-import { FindPageByNameAndGatewayIdQuery } from '../queries/findPageByNameAndGatewayId.queryHandler';
+import { FindPageByNameAndNvrIdQuery } from '../queries/findPageByNameAndNvrId.queryHandler';
 
 @Injectable()
 export class PageValidator {
@@ -15,8 +15,8 @@ export class PageValidator {
     return pageEntity;
   }
 
-  async checkAvoidPageDuplicationCreate(name: string, gatewayId: string) {
-    const query = new FindPageByNameAndGatewayIdQuery(name, gatewayId);
+  async checkAvoidPageDuplicationCreate(name: string, nvrId: string) {
+    const query = new FindPageByNameAndNvrIdQuery(name, nvrId);
     const pageEntity: PageEntity =
       await this.serviceProvider.queryBus.execute(query);
     if (pageEntity)
@@ -27,9 +27,9 @@ export class PageValidator {
   async checkAvoidPageDuplicationUpdate(
     id: string,
     name: string,
-    gatewayId: string,
+    nvrId: string,
   ) {
-    const query = new FindPageByNameAndGatewayIdQuery(name, gatewayId);
+    const query = new FindPageByNameAndNvrIdQuery(name, nvrId);
     const pageEntity: PageEntity =
       await this.serviceProvider.queryBus.execute(query);
     if (pageEntity && pageEntity.id !== id)

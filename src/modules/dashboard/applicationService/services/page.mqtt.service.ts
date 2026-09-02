@@ -20,7 +20,7 @@ export class PageMqttService {
     await this.serviceProvider.commandBus.execute(
       new CreatePageCommand({
         ...data,
-        generatedIdFromCloud: data.id,
+        originId: data.id,
       }),
     );
     await this.dashboardCloudCommunicationService.sendSoftwareConfigMsgId({
