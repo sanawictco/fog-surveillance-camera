@@ -5,8 +5,12 @@ import { CAMERA_REPOSITORY } from 'src/modules/videoDevices/infra/camera/camera.
 import { CameraRepository } from 'src/modules/videoDevices/infra/camera/camera.repository';
 
 export class FindCameraBySerialNumberQuery {
-  constructor(public readonly serialNumber: string) {
+  constructor(
+    public readonly serialNumber: string,
+    public readonly nvrId: string,
+  ) {
     this.serialNumber = serialNumber;
+    this.nvrId = nvrId;
   }
 }
 @QueryHandler(FindCameraBySerialNumberQuery)
@@ -19,6 +23,7 @@ export class FindCameraBySerialNumberQueryHandler implements IQueryHandler<FindC
   async execute(query: FindCameraBySerialNumberQuery) {
     const record = await this.cameraRepo.findOne({
       serialNumber: query.serialNumber,
+      nvrId: query.nvrId,
     });
     return record;
   }

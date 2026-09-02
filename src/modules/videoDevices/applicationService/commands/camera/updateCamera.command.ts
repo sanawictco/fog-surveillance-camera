@@ -5,25 +5,28 @@ import {
   CommandProps,
   IdType,
 } from 'src/dddLib/applicationService/command.base';
-import { AggregateID } from 'src/dddLib/core';
+import { AggregateID, BaseEntityProps } from 'src/dddLib/core';
 import { CameraActorLogService } from '../../services/actorLogs/cameraActorLog.service';
 import { CameraEntity } from '../../../domain/camera/camera.entity';
-import { UpdateCameraProps } from 'src/modules/videoDevices/domain/camera/camera.type';
+import {
+  CameraProps,
+  UpdateCameraProps,
+} from 'src/modules/videoDevices/domain/camera/camera.type';
 import { CAMERA_REPOSITORY } from 'src/modules/videoDevices/infra/camera/camera.diToken';
 import { CameraRepository } from 'src/modules/videoDevices/infra/camera/camera.repository';
 import { LiveSignalStatuses } from 'src/modules/videoDevices/shared/valueObjects/liveSignalStatus.vo';
+import { UpdateNvrProps } from 'src/modules/videoDevices/domain/nvr/nvr.type';
 export class UpdateCameraCommand
   extends Command
   implements Partial<UpdateCameraProps>
 {
   readonly name?: string;
   readonly liveSignalStatus?: LiveSignalStatuses;
-  readonly runningConfigs?: Record<string, string>;
 
   constructor(props: CommandProps<UpdateCameraCommand> & IdType) {
     super(props);
     this.name = props.name;
-    this.runningConfigs = props.runningConfigs;
+    this.liveSignalStatus = props.liveSignalStatus;
   }
 }
 
@@ -41,34 +44,38 @@ export class UpdateCameraCommandHandler implements ICommandHandler<UpdateCameraC
     const updatedObj = {
       name: command.name,
       liveSignalStatus: command.liveSignalStatus,
-      runningConfigs: command.runningConfigs,
     };
     if (!cameraEntity) throw new Error('entity not exists');
+    const previousProps = cameraEntity.getProps(); // snapshot before mutation
     cameraEntity.update(updatedObj);
     await this.cameraRepo.update(cameraEntity);
-    const actorId = command.actorProps?.actorId;
     await this.processDependencies({
       cameraEntity,
-      updatedObj,
-      actorId,
+      previousProps,
+      command,
     });
     return command.id;
   }
 
   private async processDependencies(props: {
     cameraEntity: CameraEntity;
-    actorId?: string;
-    updatedObj: any;
+    previousProps: CameraProps & BaseEntityProps;
+    command: UpdateCameraCommand;
   }) {
-    const { cameraEntity, actorId, updatedObj } = props;
+    const { cameraEntity, previousProps, command } = props;
+    const { name } = command;
+    const changedProps: Partial<UpdateNvrProps> = {
+      ...(name !== undefined && name !== previousProps.name && { name }),
+    };
+    const hasChanges = Object.keys(changedProps).length > 0;
+    if (!hasChanges) return;
     const currentOrOldName = cameraEntity.getProps().name;
-    if (updatedObj.name)
+    if (command.name)
       await this.cameraActorLogService.update({
-        actorId,
         cameraEntity,
         updateCameraProps: {
           currentOrOldName,
-          updatedProps: updatedObj,
+          updatedProps: { name: command.name },
         },
       });
   }

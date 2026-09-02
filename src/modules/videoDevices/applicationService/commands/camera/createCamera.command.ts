@@ -5,15 +5,19 @@ import {
   CommandProps,
 } from 'src/dddLib/applicationService/command.base';
 import { AggregateID } from 'src/dddLib/core';
+import { CameraActorLogService } from '../../services/actorLogs/cameraActorLog.service';
 import { CAMERA_REPOSITORY } from 'src/modules/videoDevices/infra/camera/camera.diToken';
 import { CameraRepository } from 'src/modules/videoDevices/infra/camera/camera.repository';
+import { NvrEntity } from '../../../domain/nvr/nvr.entity';
+import { NVR_REPOSITORY } from '../../../infra/nvr/nvr.diToken';
+import { NvrRepository } from '../../../infra/nvr/nvr.repository';
 import { CameraEntity } from '../../../domain/camera/camera.entity';
 import { CreateCameraProps } from '../../../domain/camera/camera.type';
 import { StreamsProps } from '../../../domain/camera/valueObjects/streams.vo';
-import { CameraActorLogService } from '../../services/actorLogs/cameraActorLog.service';
 
 export class CreateCameraCommand extends Command implements CreateCameraProps {
   readonly originId?: string;
+  readonly tenantId: string;
   readonly name: string;
   readonly productModel: string;
   readonly username: string;
@@ -28,6 +32,7 @@ export class CreateCameraCommand extends Command implements CreateCameraProps {
   constructor(props: CommandProps<CreateCameraCommand>) {
     super(props);
     this.originId = props.originId;
+    this.tenantId = props.tenantId;
     this.name = props.name;
     this.productModel = props.productModel;
     this.username = props.username;
@@ -47,12 +52,20 @@ export class CreateCameraCommandHandler implements ICommandHandler<CreateCameraC
   constructor(
     @Inject(CAMERA_REPOSITORY)
     protected readonly cameraRepo: CameraRepository,
+    @Inject(NVR_REPOSITORY)
+    protected readonly nvrRepo: NvrRepository,
     protected readonly cameraActorLogService: CameraActorLogService,
   ) {}
 
   async execute(command: CreateCameraCommand): Promise<AggregateID> {
+    const nvr: NvrEntity | undefined = await this.nvrRepo.findById(
+      command.nvrId,
+    );
+    if (!nvr) throw new Error('nvr not exists');
+
     const camera = CameraEntity.create({
-      id: command.originId,
+      originId: command.originId,
+      tenantId: command.tenantId,
       name: command.name,
       productModel: command.productModel,
       serialNumber: command.serialNumber,

@@ -10,6 +10,7 @@ import { AggregateID } from 'src/dddLib/core';
 import { CAMERA_REPOSITORY } from 'src/modules/videoDevices/infra/camera/camera.diToken';
 import { CameraRepository } from 'src/modules/videoDevices/infra/camera/camera.repository';
 import { CameraEntity } from '../../../domain/camera/camera.entity';
+import { CameraActorLogService } from '../../services/actorLogs/cameraActorLog.service';
 import { DashboardApiForVideoDevicesService } from 'src/modules/dashboard/applicationService/apiForAnotherServices/dashboardApiForVideoDevices.service';
 
 export class DeleteCameraCommand extends Command {
@@ -25,6 +26,7 @@ export class DeleteCameraCommandHandler implements ICommandHandler<DeleteCameraC
     private readonly cameraRepo: CameraRepository,
     @Inject(forwardRef(() => DashboardApiForVideoDevicesService))
     private readonly dashboardApiForVideoDevicesService: DashboardApiForVideoDevicesService,
+    private readonly cameraActorLogService: CameraActorLogService,
   ) {}
 
   async execute(command: DeleteCameraCommand): Promise<AggregateID> {
@@ -42,5 +44,6 @@ export class DeleteCameraCommandHandler implements ICommandHandler<DeleteCameraC
     await this.dashboardApiForVideoDevicesService.deleteCameraEffectFromWidgets(
       id,
     );
+    await this.cameraActorLogService.delete({ cameraEntity });
   }
 }

@@ -12,7 +12,10 @@ import { NVR_REPOSITORY } from '../../../infra/nvr/nvr.diToken';
 import { NvrRepository } from '../../../infra/nvr/nvr.repository';
 import { NvrActorLogService } from '../../services/actorLogs/nvrActorLog.service';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
-import { UpdateNvrProps } from 'src/modules/videoDevices/domain/nvr/nvr.type';
+import {
+  NvrProps,
+  UpdateNvrProps,
+} from 'src/modules/videoDevices/domain/nvr/nvr.type';
 import { LiveSignalStatuses } from 'src/modules/videoDevices/shared/valueObjects/liveSignalStatus.vo';
 
 export class UpdateNvrCommand extends Command implements UpdateNvrProps {
@@ -20,9 +23,7 @@ export class UpdateNvrCommand extends Command implements UpdateNvrProps {
   password?: string;
   lang?: LanguageCode;
   liveSignalStatus?: LiveSignalStatuses;
-  cloudIsRecovering?: boolean;
   cloudFailedAt?: number;
-  runningConfigs?: Record<string, string>;
 
   constructor(props: CommandProps<UpdateNvrCommand> & IdType) {
     super(props);
@@ -30,9 +31,7 @@ export class UpdateNvrCommand extends Command implements UpdateNvrProps {
     this.password = props.password;
     this.lang = props.lang;
     this.liveSignalStatus = props.liveSignalStatus;
-    this.cloudIsRecovering = props.cloudIsRecovering;
     this.cloudFailedAt = props.cloudFailedAt;
-    this.runningConfigs = props.runningConfigs;
   }
 }
 
@@ -49,37 +48,45 @@ export class UpdateNvrCommandHandler implements ICommandHandler<UpdateNvrCommand
     const nvrEntity: NvrEntity | undefined = await this.nvrRepo.findById(
       command.id,
     );
-    const updateObj: UpdateNvrProps = {
-      name: command.name,
-      password: command.password,
-      lang: command.lang,
-      liveSignalStatus: command.liveSignalStatus,
-      cloudIsRecovering: command.cloudIsRecovering,
-      cloudFailedAt: command.cloudFailedAt,
-      runningConfigs: command.runningConfigs,
-    };
     if (!nvrEntity) throw Error('not exist nvr with id');
-    nvrEntity.update(updateObj);
+    const previousProps: NvrProps = nvrEntity.getProps(); // snapshot before mutation
+    nvrEntity.update(this._toUpdateProps(command));
     await this.nvrRepo.update(nvrEntity);
-    await this.processDependencies(nvrEntity, command);
+    await this.processDependencies(nvrEntity, previousProps, command);
     return command.id;
+  }
+
+  private _toUpdateProps(command: UpdateNvrCommand): UpdateNvrProps {
+    const { name, password, lang, cloudFailedAt } = command;
+
+    return {
+      name,
+      password,
+      lang,
+      cloudFailedAt,
+    };
   }
 
   private async processDependencies(
     nvrEntity: NvrEntity,
+    previousProps: NvrProps,
     command: UpdateNvrCommand,
   ) {
-    const actorId = command.actorProps?.actorId;
     const { name, password, lang } = command;
-    const currentOrOldName = nvrEntity.getProps().name;
-    if (name || password || lang)
-      await this.nvrActorLogService.update({
-        nvrEntity,
-        actorId,
-        updatedNvrProps: {
-          currentOrOldName,
-          updatedProps: command,
-        },
-      });
+    const changedProps: Partial<UpdateNvrProps> = {
+      ...(name !== undefined && name !== previousProps.name && { name }),
+      ...(password !== undefined &&
+        password !== previousProps.password && { password }),
+      ...(lang !== undefined && lang !== previousProps.lang && { lang }),
+    };
+
+    if (!Object.keys(changedProps).length) return;
+    await this.nvrActorLogService.update({
+      nvrEntity,
+      updatedNvrProps: {
+        currentOrOldName: previousProps.name,
+        updatedProps: command,
+      },
+    });
   }
 }
