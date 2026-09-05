@@ -4,7 +4,7 @@ import { CloudConnectionService } from './applicationService/services/cloudConne
 import { CqrsModule } from '@nestjs/cqrs';
 import { MqttModule } from 'src/extensions/mqtt/mqtt.module';
 import { AppModule } from 'src/app.module';
-import { CloudRecoveryService } from './applicationService/cloudRecovery.service';
+import { CloudRecoveryService } from './applicationService/services/cloudRecovery.service';
 import { ActorLogModule } from '../actorLogs/actorLog.module';
 import { SystemLogModule } from '../systemLogs/systemLog.module';
 import { VideoDevicesModule } from '../videoDevices/videoDevices.module';

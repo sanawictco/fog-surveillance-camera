@@ -11,7 +11,7 @@ import { kurdiSystemLogSections } from 'src/extensions/translation/languages/kur
 import { DictionarySections } from 'src/extensions/translation/translator.base';
 import { TranslatorService } from 'src/extensions/translation/translatorService';
 import { WebsocketService } from 'src/extensions/websocket/websocket.service';
-import { CloudRecoveryService } from 'src/modules/cloudConnection/applicationService/cloudRecovery.service';
+import { CloudRecoveryService } from 'src/modules/cloudConnection/applicationService/services/cloudRecovery.service';
 import { VideoDevicesApiForSystemLogService } from 'src/modules/videoDevices/applicationService/services/apiForAnotherServices/videoDevicesApiForSystemLog.service';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { NvrProps } from 'src/modules/videoDevices/domain/nvr/nvr.type';

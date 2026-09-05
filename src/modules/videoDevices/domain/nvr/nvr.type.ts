@@ -70,7 +70,6 @@ export interface NvrFogSubOnCloudMqttTopics {
   videoDeviceSoftwareConfigs: string;
   cloudRecoveryDataAck: string; // this topic sufficient for cloud recovery
   cloudIsAvailable: string;
-  pageConfig: string;
 }
 
 export enum NvrConfigs {

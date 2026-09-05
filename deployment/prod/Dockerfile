@@ -8,6 +8,19 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
+# ---- TDengine backup-tooling stage ----------------------------------------
+# Cloud recovery runs `taosdump -o` from the BACKEND itself (no Docker socket).
+# Extract taosdump + the native client libs from the SAME TDengine image the
+# stack runs, so client and server can never drift. Keep this tag in lockstep
+# with the tdengine-fog service image.
+FROM registry.sanawict.ir/library/tdengine:3.3.6.3 AS taos-tools
+RUN set -eux; \
+    mkdir -p /opt/taos/lib /opt/taos/bin; \
+    cp -av "$(readlink -f /usr/bin/taosdump)" /opt/taos/bin/taosdump; \
+    cp -avL /usr/lib/libtaos*.so* /opt/taos/lib/; \
+    chmod +x /opt/taos/bin/taosdump; \
+    test -x /opt/taos/bin/taosdump
+
 FROM node:24.16-slim AS runtime
 
 ENV NODE_ENV=production \
@@ -21,7 +34,7 @@ ADD --chmod=755 \
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-      ca-certificates curl gnupg iproute2 nmap tar zstd; \
+      ca-certificates curl gnupg iproute2 nmap tar zstd liblzma5; \
     curl -fsSL https://pgp.mongodb.com/server-8.0.asc \
       | gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg; \
     echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" \
@@ -32,6 +45,20 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*; \
     mkdir -p /fog_shared_backups; \
     chown node:node /fog_shared_backups
+
+# taosdump + the native client lib. The runtime DB driver stays pure-JS; these
+# exist only for the backup path, which has no pure-JS equivalent.
+COPY --from=taos-tools /opt/taos/lib/ /usr/lib/
+COPY --from=taos-tools /opt/taos/bin/taosdump /usr/local/bin/taosdump
+RUN ldconfig
+
+# taosdump writes a log under /var/log/taos and reads config from /etc/taos. As
+# the non-root `node` user it cannot create either, and dies at init with
+# "Create taoslog failed: Permission denied" BEFORE it connects.
+RUN set -eux; \
+    mkdir -p /var/log/taos /etc/taos; \
+    printf 'logDir /var/log/taos\n' > /etc/taos/taos.cfg; \
+    chown -R node:node /var/log/taos /etc/taos
 
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules

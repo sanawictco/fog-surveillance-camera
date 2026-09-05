@@ -82,14 +82,14 @@ export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
 
   static getFogPubToCloudMqttTopics() {
     const mqttPublishTopicsObject = {
-      pageConfig: `${AppConfig().tenantId}/${AppConfig().nvrId}/page/config/sub`,
+      pageConfig: `tenants/${AppConfig().tenantId}/nvrs/${AppConfig().nvrId}/pages/to-cloud`,
     };
     return Object.freeze(mqttPublishTopicsObject);
   }
 
   public static getFogSubOnCloudMqttTopics() {
     const mqttSubscribeTopicsObject: PageSubMqttTopics = {
-      pageConfigs: `${AppConfig().tenantId}/${AppConfig().nvrId}/page/config/pub`,
+      pageConfigs: `tenants/${AppConfig().tenantId}/nvrs/${AppConfig().nvrId}/pages/to-fog`,
     };
     return Object.freeze(mqttSubscribeTopicsObject);
   }

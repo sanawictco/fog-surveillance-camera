@@ -8,7 +8,7 @@ import AppConfig from 'configs/app.config';
 import { connect, IClientOptions, MqttClient } from 'mqtt';
 import * as MqttPattern from 'mqtt-pattern';
 import { PageEntity } from 'src/modules/dashboard/domain/page.entity';
-import { CloudRecoveryService } from 'src/modules/cloudConnection/applicationService/cloudRecovery.service';
+import { CloudRecoveryService } from 'src/modules/cloudConnection/applicationService/services/cloudRecovery.service';
 import { CloudConnectionService } from 'src/modules/cloudConnection/applicationService/services/cloudConnection.service';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';

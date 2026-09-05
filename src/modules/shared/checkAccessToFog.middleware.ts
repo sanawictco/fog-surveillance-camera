@@ -2,7 +2,7 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import AppConfig from 'configs/app.config';
 import { Request, Response, NextFunction } from 'express';
-import { CloudRecoveryService } from 'src/modules/cloudConnection/applicationService/cloudRecovery.service';
+import { CloudRecoveryService } from 'src/modules/cloudConnection/applicationService/services/cloudRecovery.service';
 import { CloudConnectionService } from 'src/modules/cloudConnection/applicationService/services/cloudConnection.service';
 
 @Injectable()

@@ -10,7 +10,7 @@ import AppConfig from 'configs/app.config';
 import * as dns from 'dns';
 import { MqttService } from 'src/extensions/mqtt/mqtt.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
-import { CloudRecoveryService } from '../cloudRecovery.service';
+import { CloudRecoveryService } from './cloudRecovery.service';
 import { FindNvrByIdQuery } from 'src/modules/videoDevices/applicationService/queries/nvr/findNvrById.queryHandler';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { UpdateNvrCommand } from 'src/modules/videoDevices/applicationService/commands/nvr/updateNvr.command';
@@ -99,18 +99,28 @@ export class CloudConnectionService
       return;
     }
 
+    this.serviceProvider.logger.warn(
+      'cloud connection check failed: missed heartbeat threshold exceeded',
+    );
+    // Heartbeat missed → fog is offline regardless of whether DNS resolves.
+    // DNS success only means "internet is up"; it does NOT mean cloud EMQX is
+    // reachable, and mqttReconnect() swallows its own errors (returns void),
+    // so gating this transition inside the catch below left it unreachable
+    // whenever DNS succeeded.
+    CloudConnectionService.CLOUD_IS_AVAILABLE = false;
+    await this.serviceProvider.commandBus.execute(
+      new UpdateNvrCommand({
+        id: AppConfig().nvrId,
+        cloudFailedAt: Date.now() - 60_000,
+      }),
+    );
+    // Best-effort nudge; recovery itself happens via checkCloudIsAvailable()
+    // when the next heartbeat arrives over MQTT.
     try {
       await dns.promises.lookup(new URL(AppConfig().cloudHttpUrl).hostname);
       await this.mqttService.mqttReconnect();
     } catch (err) {
-      this.serviceProvider.logger.warn('Cloud connection check failed', err);
-      CloudConnectionService.CLOUD_IS_AVAILABLE = false;
-      await this.serviceProvider.commandBus.execute(
-        new UpdateNvrCommand({
-          id: AppConfig().nvrId,
-          cloudFailedAt: Date.now() - 60_000,
-        }),
-      );
+      this.serviceProvider.logger.error('Cloud connection check failed', err);
     }
   }
 

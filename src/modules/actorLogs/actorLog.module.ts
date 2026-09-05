@@ -41,10 +41,6 @@ const repositories: Provider[] = [
     ...apiServicesForAnotherModules,
   ],
   controllers: [],
-  exports: [
-    ActorLogApiService,
-    ActorLogApiForCloudConnectionService,
-    ACTOR_LOG_REPOSITORY,
-  ],
+  exports: [ActorLogApiService, ActorLogApiForCloudConnectionService],
 })
 export class ActorLogModule {}

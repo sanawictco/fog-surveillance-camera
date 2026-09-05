@@ -150,7 +150,7 @@ export class CameraEntity extends AggregateRoot<
 
   public static getFogSubOnCloudMqttTopics(): CameraFogSubOnCloudMqttTopics {
     const mqttSubscribeTopicsObject: CameraFogSubOnCloudMqttTopics = {
-      cameraData: `${AppConfig().nvrId}/+/camera/data/pub`,
+      cameraData: `tenants/${AppConfig().tenantId}/nvrs/${AppConfig().nvrId}/cameras/to-fog`,
     };
     return Object.freeze(mqttSubscribeTopicsObject);
   }

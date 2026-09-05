@@ -120,7 +120,7 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
     const nvrId = AppConfig().nvrId;
     const tenantId = AppConfig().tenantId;
     const mqttPublishTopicsObject: NvrFogPubToCloudMqttTopics = {
-      videoDeviceSoftwareConfigs: `${tenantId}/${nvrId}/videoDevice/Config/sub`,
+      videoDeviceSoftwareConfigs: `tenants/${tenantId}/nvrs/${nvrId}/config/to-cloud`,
       videoDeviceSystemLogs: `${tenantId}/${nvrId}/videoDevice/systemLogs/sub`,
     };
     return Object.freeze(mqttPublishTopicsObject);
@@ -130,10 +130,9 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
     const nvrId = AppConfig().nvrId;
     const tenantId = AppConfig().tenantId;
     const mqttSubscribeTopicsObject: NvrFogSubOnCloudMqttTopics = {
-      videoDeviceSoftwareConfigs: `${tenantId}/${nvrId}/videoDevice/Config/pub`,
-      cloudRecoveryDataAck: `${tenantId}/${nvrId}/cloudRecoveryData/pub`,
-      cloudIsAvailable: `${tenantId}/${nvrId}/cloudIsAvailable/pub`,
-      pageConfig: `${tenantId}/${nvrId}/page/config/pub`,
+      videoDeviceSoftwareConfigs: `tenants/${tenantId}/nvrs/${nvrId}/config/to-fog`,
+      cloudRecoveryDataAck: `tenants/${tenantId}/nvrs/${nvrId}/cloud-recovery/to-fog`,
+      cloudIsAvailable: `tenants/${tenantId}/nvrs/${nvrId}/cloud-status/to-fog`,
     };
     return Object.freeze(mqttSubscribeTopicsObject);
   }

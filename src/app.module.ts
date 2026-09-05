@@ -1,4 +1,9 @@
-import { forwardRef, Module } from '@nestjs/common';
+import {
+  forwardRef,
+  Module,
+  MiddlewareConsumer,
+  NestModule,
+} from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
@@ -12,6 +17,7 @@ import { ServiceProviderModule } from './extensions/serviceProvider/serviceProvi
 import { TranslatorModule } from './extensions/translation/translator.module';
 import { UserInfoModule } from './extensions/userInfo/userInfo.module';
 import { WsModule } from './extensions/websocket/ws.module';
+import { configureAppMiddleware } from './middlewareWiring';
 import { ContextInterceptor } from './utilities/context.interceptor';
 import { GlobalExceptionFilter } from './utilities/exception.filter';
 import { LoggerModule } from './extensions/logger/logger.module';
@@ -99,4 +105,8 @@ import { sqlConnect, WSConfig, type WsSql } from '@tdengine/websocket';
   ],
   exports: [TDENGINE_CLIENT, TDENGINE_RESTFULL_OPTIONS],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    configureAppMiddleware(consumer);
+  }
+}

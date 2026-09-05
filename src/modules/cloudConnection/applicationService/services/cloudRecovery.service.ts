@@ -1,8 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  OnApplicationBootstrap,
-} from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import axios from 'axios';
 import FormData from 'form-data';
 import { spawn } from 'node:child_process';
@@ -13,20 +9,18 @@ import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.
 import { GLOBAL_ERROR_EVENT } from 'src/utilities/exception.filter';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { MqttEventDataDto } from 'src/extensions/mqtt/dtos/mqttEventData.dto';
-import { CloudConnectionService } from './services/cloudConnection.service';
-import { TimeSeriesDbExtension } from 'src/dddLib/utils/timeSeriesDbExtension';
-import { ACTOR_LOG_REPOSITORY } from 'src/modules/actorLogs/infra/actorLog.diToken';
-import type { ActorLogRepository } from 'src/modules/actorLogs/infra/actorLog.timeseriesRepository';
+import { CloudConnectionService } from './cloudConnection.service';
 import { actorLogSuperTableName } from 'src/modules/actorLogs/domain/actorLog.type';
-import { SYSTEM_LOG_REPOSITORY } from 'src/modules/systemLogs/infra/diToken/systemLog.diToken';
-import type { SystemLogRepository } from 'src/modules/systemLogs/infra/repositories/systemLog.timeseriesRepository';
 import { systemLogSuperTableName } from 'src/modules/systemLogs/domain/systemLog.type';
+import { UpdateNvrCommand } from 'src/modules/videoDevices/applicationService/commands/nvr/updateNvr.command';
+import { CloudFailedAt } from 'src/modules/videoDevices/domain/nvr/valueObjects/cloudFailedAt.vo';
+import { ActorLogApiForCloudConnectionService } from 'src/modules/actorLogs/applicationService/services/actorLogApiForCloudConnectionservice';
+import { SystemLogApiForCloudConnectionService } from 'src/modules/systemLogs/applicationService/apiForAnotherServices/systemLogApiForCloudConnection.service';
 
 const BACKUP_ROOT = '/fog_shared_backups';
 const BACKUP_ARCHIVE = `${BACKUP_ROOT}/backups.tar.zst`;
 const MONGO_BACKUP_DIR = `${BACKUP_ROOT}/mongo`;
 const TDENGINE_BACKUP_DIR = `${BACKUP_ROOT}/tdengine`;
-const TDENGINE_BACKUP_FILE = `${TDENGINE_BACKUP_DIR}/dbs.sql`;
 const MONGO_BACKUP_SCRIPT =
   process.env.FOG_MONGO_BACKUP_SCRIPT ??
   join(process.cwd(), 'scripts', 'mongo-backup.sh');
@@ -38,10 +32,8 @@ export class CloudRecoveryService implements OnApplicationBootstrap {
 
   constructor(
     private readonly serviceProvider: ServiceProvider,
-    @Inject(ACTOR_LOG_REPOSITORY)
-    private readonly actorLogRepository: ActorLogRepository,
-    @Inject(SYSTEM_LOG_REPOSITORY)
-    private readonly systemLogRepository: SystemLogRepository,
+    private readonly actorLogApiForCloudConnectionService: ActorLogApiForCloudConnectionService,
+    private readonly systemLogApiForCloudConnectionService: SystemLogApiForCloudConnectionService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -51,13 +43,13 @@ export class CloudRecoveryService implements OnApplicationBootstrap {
     );
   }
 
-  async startCloudRecoveryProcess(_nvrEntity: NvrEntity): Promise<void> {
+  async startCloudRecoveryProcess(nvrEntity: NvrEntity): Promise<void> {
     if (CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED) return;
     CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED = true;
     try {
       await this.cleanBackup();
       await this.createMongoBackup();
-      await this.createTimeSeriesBackup();
+      await this.createTimeSeriesBackup(nvrEntity.getProps().cloudFailedAt);
       await this.compressBackup();
       await this.uploadBackup();
     } catch (error) {
@@ -69,12 +61,22 @@ export class CloudRecoveryService implements OnApplicationBootstrap {
   async getCloudRecoveryAck(_mqttMsg: MqttEventDataDto): Promise<void> {
     if (!CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED) return;
     try {
+      await this.serviceProvider.commandBus.execute(
+        new UpdateNvrCommand({
+          id: AppConfig().nvrId,
+          cloudFailedAt: CloudFailedAt.init().unpack(),
+        }),
+      );
       CloudConnectionService.CLOUD_IS_AVAILABLE = true;
       CloudRecoveryService.RECOVERY_PROCESS_INITIALIZED = false;
       await this.cleanBackup();
       // Acking means the cloud has imported the whole archive, including the
       // time-series statements; the cloud completes recovery only after both
-      // the Mongo and TDengine imports succeed.
+      // the Mongo and TDengine imports succeed. Clearing the local audit
+      // trail here can therefore never lose data the cloud doesn't already
+      // have.
+      await this.actorLogApiForCloudConnectionService.clearData();
+      await this.systemLogApiForCloudConnectionService.clearData();
     } catch (error) {
       this.serviceProvider.eventEmitter.emit(GLOBAL_ERROR_EVENT, error);
     }
@@ -86,112 +88,31 @@ export class CloudRecoveryService implements OnApplicationBootstrap {
   }
 
   /**
-   * Exports local actor/system log rows as one v1 INSERT statement per line
-   * into tdengine/dbs.sql — the archive member the cloud tenant-scoped
-   * importer consumes. Export failures are logged and skipped: a mongo-only
-   * archive stays importable and the local logs remain in TDengine for the
-   * next recovery attempt.
+   * Dumps this tenant's own actor/system supertables with TDengine's native
+   * taosdump, incrementally from the moment cloud contact was lost. A failure
+   * propagates: uploading a mongo-only archive would get acked, and the ack
+   * triggers clearData() — destroying local logs that were never backed up.
    */
-  private async createTimeSeriesBackup(): Promise<void> {
+  private async createTimeSeriesBackup(cloudFailedAt: number): Promise<void> {
     await fs.promises.mkdir(TDENGINE_BACKUP_DIR, { recursive: true });
-    try {
-      const statements = await this.exportTimeSeriesInserts();
-      await fs.promises.writeFile(
-        TDENGINE_BACKUP_FILE,
-        statements.length ? `${statements.join('\n')}\n` : '',
-      );
-    } catch (error) {
-      this.serviceProvider.logger.error(
-        'Fog time-series backup failed; archive continues without it',
-        error,
-      );
-    }
-  }
-
-  /**
-   * Exports rows from fog's own tenant stables in cloud's two-tag insert
-   * form, so the statements replay unchanged against cloud's per-tenant
-   * stables during restore. Severity (`groupId`) lives only as a tag on
-   * system-log rows, so it must be selected explicitly alongside the columns.
-   */
-  private async exportTimeSeriesInserts(): Promise<string[]> {
-    const dbName = AppConfig().timeseriesDb.dbName;
     const tenantId = AppConfig().tenantId;
-    const actorSuperTable = actorLogSuperTableName(tenantId);
-    const systemSuperTable = systemLogSuperTableName(tenantId);
-    const actorRows = await this.actorLogRepository.restQuery(
-      `SELECT tbname, createdAt, actorLogType, actorId, messageKey, messageParams ` +
-        `FROM ${dbName}.${actorSuperTable}`,
-    );
-    const systemRows = await this.systemLogRepository.restQuery(
-      `SELECT tbname, createdAt, messageKey, messageParams, section, entityId, groupId ` +
-        `FROM ${dbName}.${systemSuperTable}`,
-    );
-    if (!actorRows || !systemRows) {
-      throw new Error('Fog time-series export query failed');
-    }
-    const statements: string[] = [];
-    for (const row of actorRows) {
-      const [tbname, createdAt, actorLogType, actorId, messageKey, messageParams] =
-        row.map(this.exportCellValue);
-      statements.push(
-        `INSERT INTO ${dbName}.\`${tbname}\` ` +
-          `USING ${dbName}.${actorSuperTable} (tenantId, actorId) ` +
-          `TAGS (${TimeSeriesDbExtension.getValuesInsertFormat([tenantId, actorId])}) ` +
-          `VALUES (${this.actorLogValues(createdAt, actorLogType, messageKey, messageParams)});`,
-      );
-    }
-    for (const row of systemRows) {
-      const [tbname, createdAt, messageKey, messageParams, section, entityId, groupId] =
-        row.map(this.exportCellValue);
-      statements.push(
-        `INSERT INTO ${dbName}.\`${tbname}\` ` +
-          `USING ${dbName}.${systemSuperTable} (tenantId, groupId) ` +
-          `TAGS (${TimeSeriesDbExtension.getValuesInsertFormat([tenantId, groupId])}) ` +
-          `VALUES (${this.systemLogValues(createdAt, messageKey, messageParams, section, entityId)});`,
-      );
-    }
-    return statements;
-  }
-
-  private exportCellValue(value: unknown): string {
-    return String(value ?? '')
-      .replace(/[\r\n]+/g, ' ')
-      .replace(/`/g, '');
-  }
-
-  /**
-   * actorId is intentionally absent here: it is a TAG on the stable, not a
-   * stored column (TDengine rejects a tag name that duplicates a column
-   * name), so it is supplied only in the INSERT statement's TAGS clause.
-   */
-  private actorLogValues(
-    createdAt: unknown,
-    actorLogType: unknown,
-    messageKey: unknown,
-    messageParams: unknown,
-  ): string {
-    return TimeSeriesDbExtension.getValuesInsertFormat([
-      Number(createdAt),
-      String(actorLogType ?? ''),
-      String(messageKey ?? ''),
-      String(messageParams ?? ''),
-    ]);
-  }
-
-  private systemLogValues(
-    createdAt: unknown,
-    messageKey: unknown,
-    messageParams: unknown,
-    section: unknown,
-    entityId: unknown,
-  ): string {
-    return TimeSeriesDbExtension.getValuesInsertFormat([
-      Number(createdAt),
-      String(messageKey ?? ''),
-      String(messageParams ?? ''),
-      String(section ?? ''),
-      String(entityId ?? ''),
+    await this.runCommand('taosdump', [
+      '-h', process.env.TIME_SERIES_DB_HOST ?? 'tdengine-fog',
+      '-P', process.env.TIME_SERIES_DB_NATIVE_PORT ?? '6030',
+      '-u', process.env.TIME_SERIES_DB_USER ?? 'root',
+      `-p${process.env.TIME_SERIES_DB_PASSWORD ?? ''}`,
+      // Mandatory: fog's database name contains a hyphen, which taosdump
+      // otherwise emits unescaped, failing with "Database not specified".
+      '-e',
+      AppConfig().timeseriesDb.dbName,
+      actorLogSuperTableName(tenantId),
+      systemLogSuperTableName(tenantId),
+      '-S', String(cloudFailedAt),
+      '-o', TDENGINE_BACKUP_DIR,
+      // taosdump unconditionally writes a result log; point it at the backup
+      // dir (already chown'd to the node user) instead of the process cwd,
+      // which the unprivileged node user may not be able to write to.
+      '-r', `${TDENGINE_BACKUP_DIR}/dump_result.txt`,
     ]);
   }
 
