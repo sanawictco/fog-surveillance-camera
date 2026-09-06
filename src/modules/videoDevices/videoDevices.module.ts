@@ -58,6 +58,8 @@ import { NvrConfigsMqttService } from './applicationService/services/mqtt/nvrCon
 import { CameraConfigsMqttService } from './applicationService/services/mqtt/cameraConfigsMqtt.service';
 import { PhysicalEthernetProvider } from './infra/networkScanner/physicalEthernet.provider';
 import { VideoDeviceConfigsMqttController } from './controllers/videoDeviceConfigs.mqtt.controller';
+import { VideoDevicesCloudCommunicationService } from './applicationService/services/videoDevicesCloudCommunication.service.ts';
+import { TDengineModule } from 'src/extensions/tdengine/tdengine.module';
 
 const commandHandlers: Provider[] = [
   ...[
@@ -116,6 +118,7 @@ const services: Provider[] = [
   OnvifDiscoveryService,
   CameraNetworkScannerService,
   ScannerPreflightService,
+  VideoDevicesCloudCommunicationService,
   NvrConfigsMqttService,
   CameraConfigsMqttService,
 ];
@@ -140,6 +143,7 @@ const mqttControllers: Provider[] = [VideoDeviceConfigsMqttController];
     forwardRef(() => ActorLogModule),
     forwardRef(() => SystemLogModule),
     forwardRef(() => DashboardModule),
+    TDengineModule,
   ],
   providers: [
     ...services,

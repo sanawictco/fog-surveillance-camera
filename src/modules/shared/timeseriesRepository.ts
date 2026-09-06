@@ -24,8 +24,11 @@ export interface TdengineRestOptions {
   restUrl: string;
   token: string;
 }
-export const TDENGINE_CLIENT = Symbol('TDENGINE_CLIENT');
-export const TDENGINE_RESTFULL_OPTIONS = Symbol('TDENGINE_RESTFULL_OPTIONS');
+import {
+  TDENGINE_CLIENT,
+  TDENGINE_RESTFULL_OPTIONS,
+} from 'src/extensions/tdengine/tdeinge.tokens';
+export { TDENGINE_CLIENT, TDENGINE_RESTFULL_OPTIONS };
 
 @Injectable()
 export class TimeseriesRepository {
