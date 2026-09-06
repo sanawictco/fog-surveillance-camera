@@ -4,13 +4,13 @@ import { MqttService } from 'src/extensions/mqtt/mqtt.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { GLOBAL_ERROR_EVENT } from 'src/utilities/exception.filter';
 
-export type FogCloudConfigType = 'videoDevice' | 'page';
+export type CloudConfigType = 'videoDevice' | 'page';
 
 export interface CloudConfigPayload {
   serialNumber: string;
   accessToken: string;
   msgId: string;
-  configType: FogCloudConfigType;
+  configType: CloudConfigType;
 }
 
 export interface CloudConfigResponse {
@@ -25,7 +25,7 @@ export abstract class BaseCloudCommunicationService {
     protected readonly serviceProvider: ServiceProvider,
   ) {}
 
-  protected abstract getConfigType(): FogCloudConfigType;
+  protected abstract getConfigType(): CloudConfigType;
   protected abstract getSoftwareConfigTopic(): string;
 
   protected async publishToMqtt(topic: string, msg: unknown): Promise<void> {
@@ -34,10 +34,18 @@ export abstract class BaseCloudCommunicationService {
 
   async sendSoftwareConfigMsgId(msg: {
     msgId: string;
-    mqttData?: unknown;
+    mqttData?: {
+      macAddresses?: string[];
+      disconnectedMacAddresses?: string[];
+      failedRegisteredCameraSerialNumbers?: string[];
+      failedDeletedCameraSerialNumbers?: string[];
+      failedActivatedCameraIds?: string[];
+      failedInactivatedCameraIds?: string[];
+      failedDeletedCameraIds?: string[];
+    };
   }): Promise<void> {
     const topic = this.getSoftwareConfigTopic();
-    await this.publishToMqtt(topic, msg);
+    await this.publishToMqtt(topic, { msgId: msg.msgId, ...msg.mqttData });
   }
 
   async getSoftwareConfigFromCloud(
@@ -67,10 +75,7 @@ export abstract class BaseCloudCommunicationService {
     };
   }
 
-  private async handleCloudError(
-    err: unknown,
-    msgId: string,
-  ): Promise<never> {
+  private async handleCloudError(err: unknown, msgId: string): Promise<never> {
     const error = err instanceof Error ? err : new Error(String(err));
     this.logCloudError(msgId, error);
     this.serviceProvider.eventEmitter.emit(

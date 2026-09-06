@@ -6,6 +6,7 @@ export class CameraCreatedDomainEvent
   extends DomainEvent
   implements CreateCameraProps
 {
+  readonly tenantId: string;
   name: string;
   productModel: string;
   serialNumber: string;
@@ -20,6 +21,7 @@ export class CameraCreatedDomainEvent
 
   constructor(props: DomainEventProps<CameraCreatedDomainEvent>) {
     super(props);
+    this.tenantId = props.tenantId;
     this.name = props.name;
     this.productModel = props.productModel;
     this.serialNumber = props.serialNumber;

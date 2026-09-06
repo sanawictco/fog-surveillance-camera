@@ -78,7 +78,7 @@ export enum CameraWebSocketDataTypes {
   LIVE_SIGNAL = 'liveSignal',
 }
 
-export enum CameraSoftwareConfigs {
+export enum CameraConfigs {
   UPDATE_CAMERA = 'UPDATE_CAMERA',
 }
 

@@ -13,10 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CreatePageRequestDto } from '../applicationService/contracts/createPage.request.dto';
-import {
-  GetAllPagesResponseDto,
-  PageResponseDto,
-} from '../applicationService/contracts/page.response.dto';
+import { PageResponseDto } from '../applicationService/contracts/page.response.dto';
 import { UpdatePageRequestDto } from '../applicationService/contracts/updatePage.request.dto';
 import { PagesHttpService } from '../applicationService/services/page.http.service';
 import { OnlyIdParamRequestDto } from 'src/modules/shared/dtos/onlyIdParam.request.dto';
@@ -31,7 +28,7 @@ export class PageHttpController {
   find(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit = 10,
-  ): Promise<GetAllPagesResponseDto> {
+  ): Promise<PageResponseDto[]> {
     return this.pagesService.find();
     console.log(page, limit);
   }

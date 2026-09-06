@@ -13,6 +13,8 @@ import {
   Matches,
   ValidateNested,
 } from 'class-validator';
+import { StreamsProps } from '../../domain/camera/valueObjects/streams.vo';
+import { AggregateID } from 'src/dddLib/core';
 
 export class FogRegisterCameraDto {
   @IsUUID('4')
@@ -46,7 +48,7 @@ export class FogRegisterCameraDto {
   port!: number;
 
   @IsObject()
-  streams!: object;
+  streams!: StreamsProps;
 
   @IsBoolean()
   hasPtz!: boolean;
@@ -104,10 +106,6 @@ export class FogRegisterConfigDto {
   data!: FogRegisterConfigDataDto;
 }
 
-export class FogSearchConfigDto {
-  @Matches(/^search$/)
-  configType!: 'search';
-
-  @IsObject()
-  data!: Record<string, never>;
+export interface OperatoinOnMultiCamerasMqttRequestDto {
+  cameraIds: AggregateID[];
 }

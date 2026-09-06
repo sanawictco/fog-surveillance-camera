@@ -7,6 +7,8 @@ export class PageCreatedDomainEvent
   extends DomainEvent
   implements CreatePageProps
 {
+  readonly originId?: string;
+  readonly tenantId: string;
   readonly name: string;
   readonly nvrId: string;
   readonly type: PageTypes;
@@ -15,6 +17,8 @@ export class PageCreatedDomainEvent
 
   constructor(props: DomainEventProps<PageCreatedDomainEvent>) {
     super(props);
+    this.originId = props.originId;
+    this.tenantId = props.tenantId;
     this.name = props.name;
     this.nvrId = props.nvrId;
     this.type = props.type;

@@ -1,23 +1,26 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { MqttService } from 'src/extensions/mqtt/mqtt.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
-import { PageEntity } from '../../domain/page.entity';
 import {
   BaseCloudCommunicationService,
   CloudConfigType,
 } from 'src/modules/shared/cloudConfig/baseCloudCommunication.service';
+import { NvrEntity } from '../../domain/nvr/nvr.entity';
 
 @Injectable()
-export class DashboardCloudCommunicationService extends BaseCloudCommunicationService {
-  constructor(mqttService: MqttService, serviceProvider: ServiceProvider) {
+export class VideoDevicesCloudCommunicationService extends BaseCloudCommunicationService {
+  constructor(
+    @Inject(forwardRef(() => MqttService)) mqttService: MqttService,
+    serviceProvider: ServiceProvider,
+  ) {
     super(mqttService, serviceProvider);
   }
 
   protected getConfigType(): CloudConfigType {
-    return 'page';
+    return 'videoDevice';
   }
 
   protected getSoftwareConfigTopic(): string {
-    return PageEntity.getFogPubToCloudMqttTopics().pageConfig;
+    return NvrEntity.getFogPubToCloudMqttTopics().videoDeviceSoftwareConfigs;
   }
 }

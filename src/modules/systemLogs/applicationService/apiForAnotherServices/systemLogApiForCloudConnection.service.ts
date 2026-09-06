@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
-import { ClearAllSystemLogsCommand } from '../commands/clearAllSystemLogs.command';
+import { ClearAllSystemLogsCommand } from '../commands/systemLog/clearAllSystemLogs.command';
 
 @Injectable()
 export class SystemLogApiForCloudConnectionService {

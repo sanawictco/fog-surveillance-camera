@@ -1,0 +1,10 @@
+.git
+.github
+.husky
+.env*
+!.env.production.example
+coverage
+dist
+logs
+node_modules
+deployment/prod/secrets
