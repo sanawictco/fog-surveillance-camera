@@ -616,8 +616,8 @@ interface DiscoveredCameraDto {
   ipAddress?: string;
   endpointReference?: string;      // WS-Discovery UUID
   status: 'ONVIF_READY' | 'NEEDS_ACTIVATION' | 'ONVIF_DISABLED' | 'AUTH_FAILED'
-        | 'UNKNOWN_PRODUCT' | 'ONVIF_UNREACHABLE' | 'IP_CONFLICT' | 'OFF_SUBNET'
-        | 'MULTI_HOMED';
+        | 'UNKNOWN_PRODUCT' | 'ONVIF_UNREACHABLE' | 'IP_CONFLICT' | 'OFF_SUBNET';
+  multiHomed?: boolean;              // answering on two addresses; still probeable
   discoveredVia: ('lease' | 'neighbor' | 'onvif' | 'nmap' | 'vendorL2')[];
   adapterId?: string;
   manufacturer?: string;
