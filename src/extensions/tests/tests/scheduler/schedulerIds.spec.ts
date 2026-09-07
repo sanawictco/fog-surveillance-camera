@@ -2,7 +2,7 @@ import {
   CLOUD_AVAILABILITY_SCHEDULER_ID,
   legacyNvrLiveSignalSchedulerId,
   nvrLiveSignalSchedulerId,
-} from '../../scheduler/schedulerIds';
+} from '../../../scheduler/schedulerIds';
 
 const TENANT_A = '11111111-1111-4111-8111-111111111111';
 const TENANT_B = '22222222-2222-4222-8222-222222222222';
