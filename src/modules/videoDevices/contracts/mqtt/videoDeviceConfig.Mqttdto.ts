@@ -109,3 +109,24 @@ export class FogRegisterConfigDto {
 export interface OperatoinOnMultiCamerasMqttRequestDto {
   cameraIds: AggregateID[];
 }
+
+export class DiscoveredCameraDto {
+  macAddress?: string;
+  endpointReference?: string;
+  ipAddress!: string;
+  status!: string;
+  discoveredVia!: string[];
+  manufacturer?: string;
+  model?: string;
+  firmwareVersion?: string;
+  serialNumber?: string;
+  hardwareId?: string;
+  onvifXaddr?: string;
+  suggestedName?: string;
+  hasPtz?: boolean;
+  hasAudio?: boolean;
+  streams?: StreamsProps;
+  multiHomed?: boolean;
+  conflictMacAddresses?: string[];
+  conflictEndpointReferences?: string[];
+}

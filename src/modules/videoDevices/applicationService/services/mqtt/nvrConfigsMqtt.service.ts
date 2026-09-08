@@ -5,30 +5,33 @@ import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.
 import {
   FogRegisterConfigDataDto,
   OperatoinOnMultiCamerasMqttRequestDto,
-} from 'src/modules/videoDevices/contracts/mqtt/videoDeviceConfig.Mqttdto.js';
-import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity.js';
+} from 'src/modules/videoDevices/contracts/mqtt/videoDeviceConfig.Mqttdto';
+import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import {
   NvrConfigs,
   NvrProps,
 } from 'src/modules/videoDevices/domain/nvr/nvr.type';
-import { ActiveCameraCommand } from '../../commands/camera/activeCamera.command.js';
-import { CreateCameraCommand } from '../../commands/camera/createCamera.command.js';
-import { DeleteCameraCommand } from '../../commands/camera/deleteCamera.command.js';
-import { CreateNvrCommand } from '../../commands/nvr/createNvr.command.js';
-import { DeleteNvrCommand } from '../../commands/nvr/deleteNvr.command.js';
-import { InActiveNvrCommand } from '../../commands/nvr/inactiveNvr.command.js';
-import { UpdateNvrCommand } from '../../commands/nvr/updateNvr.command.js';
-import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler.js';
+import { ActiveCameraCommand } from '../../commands/camera/activeCamera.command';
+import { CreateCameraCommand } from '../../commands/camera/createCamera.command';
+import { DeleteCameraCommand } from '../../commands/camera/deleteCamera.command';
+import { CreateNvrCommand } from '../../commands/nvr/createNvr.command';
+import { DeleteNvrCommand } from '../../commands/nvr/deleteNvr.command';
+import { InActiveNvrCommand } from '../../commands/nvr/inactiveNvr.command';
+import { UpdateNvrCommand } from '../../commands/nvr/updateNvr.command';
+import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
 import { VideoDevicesCloudCommunicationService } from '../videoDevicesCloudCommunication.service.ts';
-import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity.js';
-import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler.js';
-import { InActiveCameraCommand } from '../../commands/camera/inactiveCamera.command.js';
+import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
+import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler';
+import { InActiveCameraCommand } from '../../commands/camera/inactiveCamera.command';
+import { CameraDiscoveryService } from '../discovery/cameraDiscovery.service';
+import { DiscoveredCamera } from 'src/modules/videoDevices/infra/discoveredCamera/discoveredCamera.types';
 
 @Injectable()
 export class NvrConfigsMqttService {
   constructor(
     private readonly serviceProvider: ServiceProvider,
     private readonly videoDevicesCloudCommunicationService: VideoDevicesCloudCommunicationService,
+    private readonly cameraDiscoveryService: CameraDiscoveryService,
   ) {}
 
   async update(msgId: string, data: NvrProps & BaseEntityProps) {
@@ -94,12 +97,10 @@ export class NvrConfigsMqttService {
   }
 
   async autoSearch() {
-    //TODO : implement autoSearch logic
+    const cameras = await this.cameraDiscoveryService.discover();
     await this.videoDevicesCloudCommunicationService.sendSoftwareConfigMsgId({
       msgId: NvrConfigs.SEARCH,
-      mqttData: {
-        macAddresses: [],
-      },
+      mqttData: { discoveredCameras: cameras.map(toDiscoveredCameraDto) },
     });
   }
 
@@ -293,4 +294,13 @@ export class NvrConfigsMqttService {
       },
     });
   }
+}
+
+// interfaceName is deliberately not published: it is a fog-local detail and
+// means nothing to cloud.
+function toDiscoveredCameraDto(camera: DiscoveredCamera): Record<string, unknown> {
+  const { interfaceName, ...rest } = camera;
+  return Object.fromEntries(
+    Object.entries(rest).filter(([, value]) => value !== undefined),
+  );
 }
