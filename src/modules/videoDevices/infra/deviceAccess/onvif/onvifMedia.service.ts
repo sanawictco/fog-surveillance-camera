@@ -44,8 +44,11 @@ export class OnvifMediaService {
         ...(resolution
           ? {
               resolution: {
-                width: Number(resolution.Width),
-                height: Number(resolution.Height),
+                // Width/Height are leaves that can carry attributes, in
+                // which case fast-xml-parser yields `{'#text': ...}` rather
+                // than a plain string; `text()` unwraps that shape.
+                width: Number(text(resolution.Width)),
+                height: Number(text(resolution.Height)),
               },
             }
           : {}),

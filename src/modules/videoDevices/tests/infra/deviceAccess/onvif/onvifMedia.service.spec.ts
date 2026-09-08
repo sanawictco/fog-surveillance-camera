@@ -68,6 +68,35 @@ describe('OnvifMediaService.getProfiles', () => {
     ]);
   });
 
+  it('parses Width/Height when they carry attributes (fast-xml-parser #text shape)', async () => {
+    const call = jest
+      .fn()
+      .mockResolvedValueOnce({
+        GetProfilesResponse: {
+          Profiles: {
+            token: 'main',
+            Name: 'MainStream',
+            VideoEncoderConfiguration: {
+              Resolution: {
+                Width: { '#text': '1920', someAttr: 'x' },
+                Height: { '#text': '1080', someAttr: 'x' },
+              },
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('not supported'));
+
+    const profiles = await new OnvifMediaService({ call } as never).getProfiles(
+      ENDPOINT,
+      CREDS,
+      MEDIA,
+      false,
+    );
+
+    expect(profiles[0].resolution).toEqual({ width: 1920, height: 1080 });
+  });
+
   it('keeps a profile whose stream URI cannot be read', async () => {
     const call = jest
       .fn()

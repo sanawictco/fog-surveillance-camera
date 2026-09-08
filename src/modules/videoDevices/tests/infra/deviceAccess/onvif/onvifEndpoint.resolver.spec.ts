@@ -68,4 +68,44 @@ describe('OnvifEndpointResolver', () => {
       await new OnvifEndpointResolver({ call } as never).resolve('192.168.10.51'),
     ).toBeUndefined();
   });
+
+  it('parses UTCDateTime fields carrying attributes (fast-xml-parser #text shape)', async () => {
+    const call = jest.fn().mockResolvedValue({
+      GetSystemDateAndTimeResponse: {
+        SystemDateAndTime: {
+          UTCDateTime: {
+            Date: {
+              Year: { '#text': '2026', tz: 'UTC' },
+              Month: { '#text': '9' },
+              Day: { '#text': '7' },
+            },
+            Time: {
+              Hour: { '#text': '11' },
+              Minute: { '#text': '0' },
+              Second: { '#text': '0' },
+            },
+          },
+        },
+      },
+    });
+    const endpoint = await new OnvifEndpointResolver({ call } as never).resolve(
+      '192.168.10.51',
+      'http://192.168.10.51/onvif/device_service',
+    );
+    expect(endpoint?.deviceTimeOffsetMs).toBe(3_600_000);
+  });
+
+  it('returns the endpoint with a zero offset when the endpoint answers but UTCDateTime cannot be parsed', async () => {
+    const call = jest.fn().mockResolvedValue({
+      GetSystemDateAndTimeResponse: { SystemDateAndTime: {} },
+    });
+    const endpoint = await new OnvifEndpointResolver({ call } as never).resolve(
+      '192.168.10.51',
+      'http://192.168.10.51/onvif/device_service',
+    );
+    expect(endpoint).toEqual({
+      xaddr: 'http://192.168.10.51/onvif/device_service',
+      deviceTimeOffsetMs: 0,
+    });
+  });
 });

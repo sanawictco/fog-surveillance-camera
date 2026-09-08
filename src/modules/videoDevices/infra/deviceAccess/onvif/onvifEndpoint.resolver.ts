@@ -26,7 +26,13 @@ export class OnvifEndpointResolver {
         // device clock needed to build a valid Created timestamp later.
         const body = await this.soap.call(xaddr, GET_SYSTEM_DATE_AND_TIME);
         const deviceTime = readUtcDateTime(body);
-        if (deviceTime === undefined) continue;
+        if (deviceTime === undefined) {
+          // The call succeeded — this proves the endpoint IS a live ONVIF
+          // service — but its UTCDateTime shape could not be parsed. Losing
+          // a reachable camera from the inventory is worse than shipping it
+          // with an unadjusted clock.
+          return { xaddr, deviceTimeOffsetMs: 0 };
+        }
         return { xaddr, deviceTimeOffsetMs: deviceTime - Date.now() };
       } catch {
         // Try the next candidate; an unreachable port is expected.
@@ -43,12 +49,26 @@ function readUtcDateTime(body: Record<string, any>): number | undefined {
   const time = utc?.Time;
   if (!date || !time) return undefined;
   const value = Date.UTC(
-    Number(date.Year),
-    Number(date.Month) - 1,
-    Number(date.Day),
-    Number(time.Hour),
-    Number(time.Minute),
-    Number(time.Second ?? 0),
+    toNumber(date.Year),
+    toNumber(date.Month) - 1,
+    toNumber(date.Day),
+    toNumber(time.Hour),
+    toNumber(time.Minute),
+    toNumber(time.Second ?? 0),
   );
   return Number.isNaN(value) ? undefined : value;
+}
+
+// fast-xml-parser yields `{'#text': ..., <attr>: ...}` instead of a plain
+// scalar for a leaf element that carries an attribute (e.g. a TZ attribute
+// on Year). Unwrap that shape before coercing to a number.
+function toNumber(value: unknown): number {
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    '#text' in (value as Record<string, unknown>)
+  ) {
+    return Number((value as Record<string, unknown>)['#text']);
+  }
+  return Number(value);
 }
