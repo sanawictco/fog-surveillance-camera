@@ -16,12 +16,12 @@ export class DiscoveredCameraRepository {
 
   async upsertMany(cameras: DiscoveredCamera[]): Promise<void> {
     for (const camera of cameras) {
-      const key = this.identityFilter(camera);
-      if (!key) continue;
+      const filter = this.identityFilter(camera);
+      if (!filter) continue;
       try {
         await this.model.updateOne(
-          key,
-          { $set: { ...camera, ...key, lastSeenAt: new Date() } },
+          filter,
+          { $set: { ...camera, ...this.scope(), lastSeenAt: new Date() } },
           { upsert: true },
         );
       } catch (error) {
@@ -44,12 +44,27 @@ export class DiscoveredCameraRepository {
 
   private identityFilter(
     camera: DiscoveredCamera,
-  ): Record<string, string> | undefined {
-    if (camera.macAddress) {
-      return { ...this.scope(), macAddress: camera.macAddress };
+  ): Record<string, unknown> | undefined {
+    const { macAddress, endpointReference } = camera;
+    if (macAddress && endpointReference) {
+      // The camera may have first been cached keyed by endpoint reference
+      // (before its MAC was known) and now also carries a MAC. Match on
+      // either scoped key so that earlier row is updated in place — a
+      // MAC-only filter would match nothing and the upsert would insert a
+      // second document sharing the same endpointReference, violating the
+      // unique partial index on it.
+      return {
+        $or: [
+          { ...this.scope(), macAddress },
+          { ...this.scope(), endpointReference },
+        ],
+      };
     }
-    if (camera.endpointReference) {
-      return { ...this.scope(), endpointReference: camera.endpointReference };
+    if (macAddress) {
+      return { ...this.scope(), macAddress };
+    }
+    if (endpointReference) {
+      return { ...this.scope(), endpointReference };
     }
     // Nothing stable to key on; a record we could never resolve later is worse
     // than no record.

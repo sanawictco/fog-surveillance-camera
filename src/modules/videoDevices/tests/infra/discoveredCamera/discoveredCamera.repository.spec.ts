@@ -76,6 +76,39 @@ describe('DiscoveredCameraRepository', () => {
     expect(updateOne).not.toHaveBeenCalled();
   });
 
+  it('matches an existing endpoint-reference-keyed row by $or once a MAC is learned', async () => {
+    const updateOne = jest.fn().mockResolvedValue(undefined);
+    const repository = new DiscoveredCameraRepository({ updateOne } as never);
+
+    // Scan 1: only WS-Discovery evidence, so the camera is cached keyed by
+    // endpoint reference alone.
+    await repository.upsertMany([
+      { ...camera, macAddress: undefined, endpointReference: 'urn:uuid:a' },
+    ]);
+    const firstFilter = updateOne.mock.calls[0][0];
+    expect(firstFilter).toEqual({
+      tenantId: 'tenant-1',
+      nvrId: 'nvr-1',
+      endpointReference: 'urn:uuid:a',
+    });
+
+    // Scan 2: the camera now also carries a MAC. The filter must still be
+    // able to match the row created above, not just a fresh MAC-only filter.
+    await repository.upsertMany([
+      { ...camera, macAddress: 'AA:BB:CC:DD:EE:FF', endpointReference: 'urn:uuid:a' },
+    ]);
+    const secondFilter = updateOne.mock.calls[1][0];
+    expect(secondFilter).toEqual({
+      $or: [
+        { tenantId: 'tenant-1', nvrId: 'nvr-1', macAddress: 'AA:BB:CC:DD:EE:FF' },
+        { tenantId: 'tenant-1', nvrId: 'nvr-1', endpointReference: 'urn:uuid:a' },
+      ],
+    });
+    // The first document (matched by endpointReference alone) would satisfy
+    // this $or, proving it is updated in place rather than colliding.
+    expect(secondFilter.$or).toContainEqual(firstFilter);
+  });
+
   it('continues after a failed write, isolating errors per camera', async () => {
     const updateOne = jest
       .fn()
