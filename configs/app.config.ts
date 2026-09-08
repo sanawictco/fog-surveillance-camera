@@ -106,5 +106,23 @@ const AppConfig = () => ({
       .default('256')
       .asIntPositive(),
   },
+  onvif: {
+    requestTimeoutMs: env
+      .get('ONVIF_REQUEST_TIMEOUT_MS')
+      .default('5000')
+      .asIntPositive(),
+    candidatePorts: env
+      .get('ONVIF_CANDIDATE_PORTS')
+      .default('80,8000,8899,2020')
+      .asArray(',')
+      .map(Number),
+    defaultCredentials: JSON.parse(
+      env.get('ONVIF_DEFAULT_CREDENTIALS').default('[]').asString(),
+    ) as { username: string; password: string }[],
+    discoveryTtlMinutes: env
+      .get('ONVIF_DISCOVERY_TTL_MINUTES')
+      .default('60')
+      .asIntPositive(),
+  },
 });
 export default AppConfig;
