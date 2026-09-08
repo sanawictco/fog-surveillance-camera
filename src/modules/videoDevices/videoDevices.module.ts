@@ -11,6 +11,8 @@ import { CAMERA_REPOSITORY } from './infra/camera/camera.diToken';
 import { CameraMapper } from './infra/camera/camera.mapper';
 import { CameraRepository } from './infra/camera/camera.repository';
 import { CameraModel, CameraSchema } from './infra/camera/camera.schema';
+import { DiscoveredCameraRepository } from './infra/discoveredCamera/discoveredCamera.repository';
+import { DiscoveredCameraModel, DiscoveredCameraSchema } from './infra/discoveredCamera/discoveredCamera.schema';
 import { NVR_REPOSITORY } from './infra/nvr/nvr.diToken';
 import { NvrMapper } from './infra/nvr/nvr.mapper';
 import { NvrRepository } from './infra/nvr/nvr.repository';
@@ -131,6 +133,7 @@ const services: Provider[] = [
   OnvifEndpointResolver,
   OnvifDeviceService,
   OnvifMediaService,
+  DiscoveredCameraRepository,
 ];
 
 const systemLogHandlers: Provider[] = [CameraSystemLogService];
@@ -144,6 +147,7 @@ const mqttControllers: Provider[] = [VideoDeviceConfigsMqttController];
     MongooseModule.forFeature([
       { name: CameraModel.name, schema: CameraSchema },
       { name: NvrModel.name, schema: NvrSchema },
+      { name: DiscoveredCameraModel.name, schema: DiscoveredCameraSchema },
     ]),
     CachingModule,
     CqrsModule,
