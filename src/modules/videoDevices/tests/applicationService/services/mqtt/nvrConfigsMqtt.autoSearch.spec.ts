@@ -11,6 +11,7 @@ describe('NvrConfigsMqttService.autoSearch', () => {
     const discover = jest.fn().mockResolvedValue([
       {
         macAddress: 'AA:BB:CC:DD:EE:FF',
+        endpointReference: 'uuid:device-1234',
         ipAddress: '192.168.10.51',
         interfaceName: 'eth1',
         status: 'ONVIF_READY',
@@ -18,9 +19,11 @@ describe('NvrConfigsMqttService.autoSearch', () => {
         manufacturer: 'ACME',
         model: 'IPC-1234',
         firmwareVersion: 'V5.7.3',
+        onvifXaddr: 'http://192.168.10.51:8899/onvif/device_service',
         suggestedName: 'Lobby',
         hasPtz: true,
         hasAudio: false,
+        conflictMacAddresses: ['BB:CC:DD:EE:FF:00'],
       },
     ]);
 
@@ -36,15 +39,18 @@ describe('NvrConfigsMqttService.autoSearch', () => {
         discoveredCameras: [
           {
             macAddress: 'AA:BB:CC:DD:EE:FF',
+            endpointReference: 'uuid:device-1234',
             ipAddress: '192.168.10.51',
             status: 'ONVIF_READY',
             discoveredVia: ['lease', 'onvif'],
             manufacturer: 'ACME',
             model: 'IPC-1234',
             firmwareVersion: 'V5.7.3',
+            onvifXaddr: 'http://192.168.10.51:8899/onvif/device_service',
             suggestedName: 'Lobby',
             hasPtz: true,
             hasAudio: false,
+            conflictMacAddresses: ['BB:CC:DD:EE:FF:00'],
           },
         ],
       },

@@ -3,6 +3,7 @@ import AppConfig from 'configs/app.config';
 import { AggregateID, BaseEntityProps } from 'src/dddLib/core';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import {
+  DiscoveredCameraDto,
   FogRegisterConfigDataDto,
   OperatoinOnMultiCamerasMqttRequestDto,
 } from 'src/modules/videoDevices/contracts/mqtt/videoDeviceConfig.Mqttdto';
@@ -298,9 +299,9 @@ export class NvrConfigsMqttService {
 
 // interfaceName is deliberately not published: it is a fog-local detail and
 // means nothing to cloud.
-function toDiscoveredCameraDto(camera: DiscoveredCamera): Record<string, unknown> {
+function toDiscoveredCameraDto(camera: DiscoveredCamera): DiscoveredCameraDto {
   const { interfaceName, ...rest } = camera;
   return Object.fromEntries(
     Object.entries(rest).filter(([, value]) => value !== undefined),
-  );
+  ) as DiscoveredCameraDto;
 }

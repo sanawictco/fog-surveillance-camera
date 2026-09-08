@@ -15,6 +15,7 @@ import {
 } from 'class-validator';
 import { StreamsProps } from '../../domain/camera/valueObjects/streams.vo';
 import { AggregateID } from 'src/dddLib/core';
+import { DiscoveredCamera } from '../../infra/discoveredCamera/discoveredCamera.types';
 
 export class FogRegisterCameraDto {
   @IsUUID('4')
@@ -110,23 +111,7 @@ export interface OperatoinOnMultiCamerasMqttRequestDto {
   cameraIds: AggregateID[];
 }
 
-export class DiscoveredCameraDto {
-  macAddress?: string;
-  endpointReference?: string;
-  ipAddress!: string;
-  status!: string;
-  discoveredVia!: string[];
-  manufacturer?: string;
-  model?: string;
-  firmwareVersion?: string;
-  serialNumber?: string;
-  hardwareId?: string;
-  onvifXaddr?: string;
-  suggestedName?: string;
-  hasPtz?: boolean;
-  hasAudio?: boolean;
-  streams?: StreamsProps;
-  multiHomed?: boolean;
-  conflictMacAddresses?: string[];
-  conflictEndpointReferences?: string[];
-}
+// Derived from the producer so the published shape cannot drift: any field added to
+// DiscoveredCamera appears here automatically, and interfaceName stays excluded by
+// construction rather than by convention (it is a fog-local detail cloud must not see).
+export type DiscoveredCameraDto = Omit<DiscoveredCamera, 'interfaceName'>;
