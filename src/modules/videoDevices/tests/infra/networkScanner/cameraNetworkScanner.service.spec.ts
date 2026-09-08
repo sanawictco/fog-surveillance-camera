@@ -1,5 +1,5 @@
 import { mergeObservations } from '../../../infra/networkScanner/cameraNetworkScanner.service';
-import { CameraNetworkScannerService } from '../../../infra/networkScanner/cameraNetworkScanner.service';
+import { NetworkObservation } from '../../../infra/networkScanner/networkScanner.types';
 
 jest.mock('configs/app.config', () => ({
   __esModule: true,
@@ -12,111 +12,78 @@ jest.mock('configs/app.config', () => ({
   }),
 }));
 
+const base = { interfaceName: 'eth1' } as const;
+
 describe('mergeObservations', () => {
-  it('deduplicates observations with the same normalized identity', () => {
-    expect(
-      mergeObservations([
-        {
-          ipAddress: '192.168.1.2',
-          macAddress: 'AA:BB:CC:DD:EE:FF',
-          interfaceName: 'eth0',
-          evidence: 'neighbor',
-        },
-        {
-          ipAddress: '192.168.1.2',
-          macAddress: 'AA:BB:CC:DD:EE:FF',
-          interfaceName: 'eth0',
-          evidence: 'nmap',
-        },
-      ]),
-    ).toHaveLength(1);
-  });
-
-  it('rejects one MAC observed at multiple IP addresses', () => {
-    expect(() =>
-      mergeObservations([
-        {
-          ipAddress: '192.168.1.2',
-          macAddress: 'AA:BB:CC:DD:EE:FF',
-          interfaceName: 'eth0',
-          evidence: 'neighbor',
-        },
-        {
-          ipAddress: '192.168.1.3',
-          macAddress: 'AA:BB:CC:DD:EE:FF',
-          interfaceName: 'eth0',
-          evidence: 'nmap',
-        },
-      ]),
-    ).toThrow('ambiguous IP addresses');
-  });
-
-  it('rejects one IP observed with multiple MAC addresses', () => {
-    expect(() =>
-      mergeObservations([
-        {
-          ipAddress: '192.168.1.2',
-          macAddress: 'AA:BB:CC:DD:EE:FF',
-          interfaceName: 'eth0',
-          evidence: 'neighbor',
-        },
-        {
-          ipAddress: '192.168.1.2',
-          macAddress: '11:22:33:44:55:66',
-          interfaceName: 'eth0',
-          evidence: 'nmap',
-        },
-      ]),
-    ).toThrow('ambiguous MAC addresses');
-  });
-
-  it('runs fixed nmap argv through the no-shell process adapter', async () => {
-    const processRunner = {
-      run: jest.fn().mockResolvedValue({ stdout: '<nmaprun/>', stderr: '' }),
-    };
-    const scanner = new CameraNetworkScannerService(
+  it('merges observations of one device and unions their evidence', () => {
+    const merged = mergeObservations([
+      { ...base, ipAddress: '192.168.10.51', macAddress: 'AA:BB:CC:DD:EE:FF', evidence: 'neighbor' },
+      { ...base, ipAddress: '192.168.10.51', macAddress: 'AA:BB:CC:DD:EE:FF', evidence: 'nmap' },
       {
-        listNetworks: jest.fn().mockResolvedValue([
-          {
-            interfaceName: 'enp1s0',
-            hostAddress: '192.168.1.9',
-            cidr: '192.168.1.0/24',
-            prefixLength: 24,
-            networkAddress: '192.168.1.0',
-            broadcastAddress: '192.168.1.255',
-          },
-        ]),
-      } as never,
-      processRunner as never,
-      { parse: jest.fn().mockReturnValue([]) } as never,
-      { read: jest.fn().mockResolvedValue([]) } as never,
-      { discover: jest.fn().mockResolvedValue([]) } as never,
-    );
+        ...base,
+        ipAddress: '192.168.10.51',
+        macAddress: 'AA:BB:CC:DD:EE:FF',
+        evidence: 'lease',
+        hostname: 'cam-lobby',
+      },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].evidence.sort()).toEqual(['lease', 'neighbor', 'nmap']);
+    expect(merged[0].hostname).toBe('cam-lobby');
+    expect(merged[0].conflictMacAddresses).toBeUndefined();
+  });
 
-    await scanner.scan();
+  it('reports every device sharing an address instead of throwing', () => {
+    const observations: NetworkObservation[] = [
+      { ...base, ipAddress: '192.168.1.21', macAddress: 'AA:BB:CC:00:00:01', evidence: 'nmap' },
+      { ...base, ipAddress: '192.168.1.21', macAddress: 'AA:BB:CC:00:00:02', evidence: 'neighbor' },
+      { ...base, ipAddress: '192.168.1.21', macAddress: 'AA:BB:CC:00:00:03', evidence: 'lease' },
+    ];
+    const merged = mergeObservations(observations);
+    expect(merged).toHaveLength(3);
+    for (const entry of merged) {
+      expect(entry.conflictMacAddresses).toEqual([
+        'AA:BB:CC:00:00:01',
+        'AA:BB:CC:00:00:02',
+        'AA:BB:CC:00:00:03',
+      ]);
+    }
+  });
 
-    expect(processRunner.run).toHaveBeenCalledWith(
-      '/usr/bin/nmap',
-      [
-        '-sn',
-        '-PR',
-        '-n',
-        '-e',
-        'enp1s0',
-        '--max-retries',
-        '1',
-        '--host-timeout',
-        '1s',
-        '--exclude',
-        '192.168.1.9,192.168.1.0,192.168.1.255',
-        '-oX',
-        '-',
-        '--',
-        '192.168.1.0/24',
-      ],
-      120_000,
-      10_485_760,
-      undefined,
-    );
+  it('keeps colliding devices apart by endpoint reference when no MAC is known', () => {
+    const merged = mergeObservations([
+      { ...base, ipAddress: '192.168.1.21', evidence: 'onvif', endpointReference: 'urn:uuid:a' },
+      { ...base, ipAddress: '192.168.1.21', evidence: 'onvif', endpointReference: 'urn:uuid:b' },
+    ]);
+    expect(merged).toHaveLength(2);
+    expect(merged[0].conflictEndpointReferences).toEqual(['urn:uuid:a', 'urn:uuid:b']);
+  });
+
+  it('joins an ONVIF observation to the MAC seen at the same address', () => {
+    const merged = mergeObservations([
+      { ...base, ipAddress: '192.168.10.51', macAddress: 'AA:BB:CC:DD:EE:FF', evidence: 'lease' },
+      {
+        ...base,
+        ipAddress: '192.168.10.51',
+        evidence: 'onvif',
+        endpointReference: 'urn:uuid:a',
+        onvifXaddr: 'http://192.168.10.51/onvif/device_service',
+        scopes: ['onvif://www.onvif.org/name/Lobby'],
+      },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].macAddress).toBe('AA:BB:CC:DD:EE:FF');
+    expect(merged[0].onvifXaddr).toBe('http://192.168.10.51/onvif/device_service');
+    expect(merged[0].scopes).toEqual(['onvif://www.onvif.org/name/Lobby']);
+  });
+
+  it('marks one MAC seen at several addresses as multi-homed and prefers the lease', () => {
+    const merged = mergeObservations([
+      { ...base, ipAddress: '192.168.10.9', macAddress: 'AA:BB:CC:DD:EE:FF', evidence: 'neighbor' },
+      { ...base, ipAddress: '192.168.10.51', macAddress: 'AA:BB:CC:DD:EE:FF', evidence: 'lease' },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].ipAddress).toBe('192.168.10.51');
+    expect(merged[0].multiHomed).toBe(true);
   });
 });

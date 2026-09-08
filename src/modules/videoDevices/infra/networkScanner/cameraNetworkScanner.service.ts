@@ -5,8 +5,9 @@ import { NmapXmlParser } from './nmapXml.parser';
 import { OnvifDiscoveryService } from './onvifDiscovery.service';
 import { PassiveNeighborService } from './passiveNeighbor.service';
 import { PhysicalEthernetProvider } from './physicalEthernet.provider';
+import { DnsmasqLeaseProvider } from './dnsmasqLease.provider';
 import {
-  CameraNetworkObservation,
+  MergedObservation,
   NetworkObservation,
 } from './networkScanner.types';
 import { isUsableAddressOnNetwork } from './cidr';
@@ -14,6 +15,7 @@ import { isUsableAddressOnNetwork } from './cidr';
 @Injectable()
 export class CameraNetworkScannerService {
   constructor(
+    private readonly leaseProvider: DnsmasqLeaseProvider,
     private readonly interfaceProvider: PhysicalEthernetProvider,
     private readonly processRunner: NetworkProcessRunner,
     private readonly xmlParser: NmapXmlParser,
@@ -21,12 +23,18 @@ export class CameraNetworkScannerService {
     private readonly onvifDiscovery: OnvifDiscoveryService,
   ) {}
 
-  async scan(signal?: AbortSignal): Promise<CameraNetworkObservation[]> {
+  async scan(signal?: AbortSignal): Promise<MergedObservation[]> {
     signal?.throwIfAborted();
     const networks = await this.interfaceProvider.listNetworks();
     const observations: NetworkObservation[] = [];
     for (const network of networks) {
       signal?.throwIfAborted();
+      const leaseObservations = await this.leaseProvider.read(network.interfaceName);
+      observations.push(
+        ...leaseObservations.filter((observation) =>
+          isUsableAddressOnNetwork(observation.ipAddress, network),
+        ),
+      );
       const neighborObservations = await this.passiveNeighbors.read(
         network.interfaceName,
         signal,
@@ -87,25 +95,95 @@ export class CameraNetworkScannerService {
 
 export function mergeObservations(
   observations: NetworkObservation[],
-): CameraNetworkObservation[] {
-  const byMac = new Map<string, CameraNetworkObservation>();
-  const macByIp = new Map<string, string>();
+): MergedObservation[] {
+  const byKey = new Map<string, MergedObservation>();
   for (const observation of observations) {
-    if (!observation.macAddress) continue;
-    const existingMac = macByIp.get(observation.ipAddress);
-    if (existingMac && existingMac !== observation.macAddress) {
-      throw new Error(`ambiguous MAC addresses for ${observation.ipAddress}`);
+    // One rule covers both conflict shapes: several MACs at one address, and
+    // several ONVIF endpoint references at one address.
+    const key =
+      observation.macAddress ??
+      observation.endpointReference ??
+      observation.ipAddress;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, {
+        ipAddress: observation.ipAddress,
+        interfaceName: observation.interfaceName,
+        evidence: [observation.evidence],
+        ...(observation.macAddress ? { macAddress: observation.macAddress } : {}),
+        ...(observation.endpointReference
+          ? { endpointReference: observation.endpointReference }
+          : {}),
+        ...(observation.onvifXaddr ? { onvifXaddr: observation.onvifXaddr } : {}),
+        ...(observation.hostname ? { hostname: observation.hostname } : {}),
+        ...(observation.scopes ? { scopes: observation.scopes } : {}),
+      });
+      continue;
     }
-    const existing = byMac.get(observation.macAddress);
-    if (existing && existing.ipAddress !== observation.ipAddress) {
-      throw new Error(`ambiguous IP addresses for ${observation.macAddress}`);
+    if (!existing.evidence.includes(observation.evidence)) {
+      existing.evidence.push(observation.evidence);
     }
-    macByIp.set(observation.ipAddress, observation.macAddress);
-    byMac.set(observation.macAddress, {
-      ipAddress: observation.ipAddress,
-      macAddress: observation.macAddress,
-      interfaceName: observation.interfaceName,
-    });
+    existing.macAddress ??= observation.macAddress;
+    existing.endpointReference ??= observation.endpointReference;
+    existing.onvifXaddr ??= observation.onvifXaddr;
+    existing.hostname ??= observation.hostname;
+    existing.scopes ??= observation.scopes;
+    if (existing.ipAddress !== observation.ipAddress) {
+      // The lease file is authoritative; anything else may be a stale entry.
+      existing.multiHomed = true;
+      if (observation.evidence === 'lease') existing.ipAddress = observation.ipAddress;
+    }
   }
-  return [...byMac.values()];
+
+  const merged = [...byKey.values()];
+  joinOnvifOnlyEntries(merged);
+  markAddressConflicts(merged);
+  return merged;
+}
+
+// A WS-Discovery observation carries no MAC, so it lands under its endpoint
+// reference. When exactly one MAC-keyed device holds that address, they are the
+// same device and the ONVIF details belong to it.
+function joinOnvifOnlyEntries(merged: MergedObservation[]): void {
+  for (const entry of [...merged]) {
+    if (entry.macAddress || !entry.endpointReference) continue;
+    const withMac = merged.filter(
+      (other) => other.ipAddress === entry.ipAddress && other.macAddress,
+    );
+    if (withMac.length !== 1) continue;
+    const target = withMac[0]!;
+    target.endpointReference ??= entry.endpointReference;
+    target.onvifXaddr ??= entry.onvifXaddr;
+    target.scopes ??= entry.scopes;
+    for (const evidence of entry.evidence) {
+      if (!target.evidence.includes(evidence)) target.evidence.push(evidence);
+    }
+    merged.splice(merged.indexOf(entry), 1);
+  }
+}
+
+function markAddressConflicts(merged: MergedObservation[]): void {
+  const byAddress = new Map<string, MergedObservation[]>();
+  for (const entry of merged) {
+    const group = byAddress.get(entry.ipAddress) ?? [];
+    group.push(entry);
+    byAddress.set(entry.ipAddress, group);
+  }
+  for (const group of byAddress.values()) {
+    if (group.length < 2) continue;
+    const macAddresses = group
+      .map((entry) => entry.macAddress)
+      .filter((mac): mac is string => Boolean(mac))
+      .sort();
+    const endpointReferences = group
+      .map((entry) => entry.endpointReference)
+      .filter((epr): epr is string => Boolean(epr))
+      .sort();
+    for (const entry of group) {
+      if (macAddresses.length) entry.conflictMacAddresses = [...macAddresses];
+      if (endpointReferences.length) {
+        entry.conflictEndpointReferences = [...endpointReferences];
+      }
+    }
+  }
 }

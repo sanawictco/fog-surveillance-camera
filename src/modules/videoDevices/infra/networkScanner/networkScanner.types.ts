@@ -44,12 +44,6 @@ export interface MergedObservation {
   conflictEndpointReferences?: string[];
 }
 
-export interface CameraNetworkObservation {
-  ipAddress: string;
-  macAddress: string;
-  interfaceName: string;
-}
-
 export interface ProcessResult {
   stdout: string;
   stderr: string;
