@@ -59,6 +59,7 @@ import { CameraConfigsMqttService } from './applicationService/services/mqtt/cam
 import { PhysicalEthernetProvider } from './infra/networkScanner/physicalEthernet.provider';
 import { DnsmasqLeaseProvider } from './infra/networkScanner/dnsmasqLease.provider';
 import { OnvifSoapClient } from './infra/deviceAccess/onvif/onvifSoap.client';
+import { OnvifEndpointResolver } from './infra/deviceAccess/onvif/onvifEndpoint.resolver';
 import { VideoDeviceConfigsMqttController } from './controllers/videoDeviceConfigs.mqtt.controller';
 import { VideoDevicesCloudCommunicationService } from './applicationService/services/videoDevicesCloudCommunication.service.ts';
 import { TDengineModule } from 'src/extensions/tdengine/tdengine.module';
@@ -125,6 +126,7 @@ const services: Provider[] = [
   NvrConfigsMqttService,
   CameraConfigsMqttService,
   OnvifSoapClient,
+  OnvifEndpointResolver,
 ];
 
 const systemLogHandlers: Provider[] = [CameraSystemLogService];
