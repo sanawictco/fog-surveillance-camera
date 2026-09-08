@@ -63,7 +63,12 @@ export class OnvifDeviceService {
       const raw = text(item?.Info?.HwAddress);
       if (!raw) continue;
       try {
-        return normalizeMacAddress(raw);
+        const normalized = normalizeMacAddress(raw);
+        // Skip placeholder addresses that are common on disabled/virtual interfaces
+        if (normalized === '00:00:00:00:00:00' || normalized === 'FF:FF:FF:FF:FF:FF') {
+          continue;
+        }
+        return normalized;
       } catch {
         // Some devices report a placeholder here; keep looking.
       }
@@ -91,5 +96,8 @@ export function asArray<T>(value: T | T[] | undefined): T[] {
 export function text(value: unknown): string | undefined {
   if (typeof value === 'string') return value || undefined;
   if (typeof value === 'number') return String(value);
+  if (typeof value === 'object' && value !== null && typeof (value as any)['#text'] === 'string') {
+    return (value as any)['#text'] || undefined;
+  }
   return undefined;
 }
