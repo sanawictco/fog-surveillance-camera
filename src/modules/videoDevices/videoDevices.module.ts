@@ -61,6 +61,7 @@ import { DnsmasqLeaseProvider } from './infra/networkScanner/dnsmasqLease.provid
 import { OnvifSoapClient } from './infra/deviceAccess/onvif/onvifSoap.client';
 import { OnvifEndpointResolver } from './infra/deviceAccess/onvif/onvifEndpoint.resolver';
 import { OnvifDeviceService } from './infra/deviceAccess/onvif/onvifDevice.service';
+import { OnvifMediaService } from './infra/deviceAccess/onvif/onvifMedia.service';
 import { VideoDeviceConfigsMqttController } from './controllers/videoDeviceConfigs.mqtt.controller';
 import { VideoDevicesCloudCommunicationService } from './applicationService/services/videoDevicesCloudCommunication.service.ts';
 import { TDengineModule } from 'src/extensions/tdengine/tdengine.module';
@@ -129,6 +130,7 @@ const services: Provider[] = [
   OnvifSoapClient,
   OnvifEndpointResolver,
   OnvifDeviceService,
+  OnvifMediaService,
 ];
 
 const systemLogHandlers: Provider[] = [CameraSystemLogService];
