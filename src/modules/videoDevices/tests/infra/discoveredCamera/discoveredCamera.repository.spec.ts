@@ -34,6 +34,9 @@ describe('DiscoveredCameraRepository', () => {
     expect(update.$set.manufacturer).toBe('ACME');
     expect(update.$set.lastSeenAt).toBeInstanceOf(Date);
     expect(options).toEqual({ upsert: true });
+    // Verify fields absent from input are not included in $set (prevents nulling on re-scan)
+    expect(update.$set).not.toHaveProperty('hardwareId');
+    expect(update.$set).not.toHaveProperty('model');
   });
 
   it('falls back to the endpoint reference when no MAC is known', async () => {
@@ -51,12 +54,18 @@ describe('DiscoveredCameraRepository', () => {
   it('reads only records seen inside the freshness window', async () => {
     const lean = jest.fn().mockResolvedValue([]);
     const find = jest.fn().mockReturnValue({ lean });
+    const nowMs = Date.now();
     await new DiscoveredCameraRepository({ find } as never).findAllFresh();
 
     const filter = find.mock.calls[0][0];
     expect(filter.tenantId).toBe('tenant-1');
     expect(filter.nvrId).toBe('nvr-1');
     expect(filter.lastSeenAt.$gte).toBeInstanceOf(Date);
+    // Verify cutoff is approximately 60 minutes (3,600,000 ms) before now
+    const cutoffMs = filter.lastSeenAt.$gte.getTime();
+    const expectedCutoffMs = nowMs - 60 * 60_000;
+    expect(cutoffMs).toBeGreaterThanOrEqual(expectedCutoffMs - 100);
+    expect(cutoffMs).toBeLessThanOrEqual(expectedCutoffMs + 100);
   });
 
   it('skips a record with neither MAC nor endpoint reference', async () => {
@@ -65,5 +74,20 @@ describe('DiscoveredCameraRepository', () => {
       { ...camera, macAddress: undefined },
     ]);
     expect(updateOne).not.toHaveBeenCalled();
+  });
+
+  it('continues after a failed write, isolating errors per camera', async () => {
+    const updateOne = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('E11000 duplicate key'))
+      .mockResolvedValueOnce(undefined);
+    await expect(
+      new DiscoveredCameraRepository({ updateOne } as never).upsertMany([
+        camera,
+        { ...camera, macAddress: 'BB:CC:DD:EE:FF:AA' },
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(updateOne).toHaveBeenCalledTimes(2);
   });
 });

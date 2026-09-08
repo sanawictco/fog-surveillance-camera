@@ -54,13 +54,16 @@ export class DiscoveredCameraModel {
 export const DiscoveredCameraSchema = SchemaFactory.createForClass(
   DiscoveredCameraModel,
 );
-// Sparse: a colliding device has no resolvable MAC and is keyed by endpoint
-// reference instead, so several such records legitimately have no macAddress.
+// Partial indexes: enforce uniqueness only when the indexed field exists.
+// A camera without macAddress (e.g., non-ONVIF or WS-Discovery collision) has no MAC key,
+// so multiple such records must coexist. Compound indexes with required fields (tenantId, nvrId)
+// are sparse: true only when ALL indexed fields are sparse; since we have required fields,
+// we instead use partialFilterExpression to skip documents lacking the identity field.
 DiscoveredCameraSchema.index(
   { tenantId: 1, nvrId: 1, macAddress: 1 },
-  { unique: true, sparse: true },
+  { unique: true, partialFilterExpression: { macAddress: { $exists: true } } },
 );
 DiscoveredCameraSchema.index(
   { tenantId: 1, nvrId: 1, endpointReference: 1 },
-  { unique: true, sparse: true },
+  { unique: true, partialFilterExpression: { endpointReference: { $exists: true } } },
 );

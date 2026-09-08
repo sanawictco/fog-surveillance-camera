@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import AppConfig from 'configs/app.config';
@@ -7,6 +7,8 @@ import { DiscoveredCamera } from './discoveredCamera.types';
 
 @Injectable()
 export class DiscoveredCameraRepository {
+  private readonly logger = new Logger(DiscoveredCameraRepository.name);
+
   constructor(
     @InjectModel(DiscoveredCameraModel.name)
     private readonly model: Model<DiscoveredCameraModel>,
@@ -16,11 +18,18 @@ export class DiscoveredCameraRepository {
     for (const camera of cameras) {
       const key = this.identityFilter(camera);
       if (!key) continue;
-      await this.model.updateOne(
-        key,
-        { $set: { ...camera, ...key, lastSeenAt: new Date() } },
-        { upsert: true },
-      );
+      try {
+        await this.model.updateOne(
+          key,
+          { $set: { ...camera, ...key, lastSeenAt: new Date() } },
+          { upsert: true },
+        );
+      } catch (error) {
+        const identity = camera.macAddress || camera.endpointReference;
+        this.logger.error(
+          `Failed to upsert camera ${identity}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     }
   }
 
