@@ -70,4 +70,23 @@ describe('NvrConfigsMqttService.autoSearch', () => {
       mqttData: { discoveredCameras: [] },
     });
   });
+
+  it('still acks with an empty list and a failure marker when discovery rejects', async () => {
+    const sendSoftwareConfigMsgId = jest.fn().mockResolvedValue(undefined);
+    const error = jest.fn();
+    const scanError = new Error('nmap not found');
+
+    await new NvrConfigsMqttService(
+      { logger: { error, debug: jest.fn() } } as never,
+      { sendSoftwareConfigMsgId } as never,
+      { discover: jest.fn().mockRejectedValue(scanError) } as never,
+    ).autoSearch();
+
+    expect(sendSoftwareConfigMsgId).toHaveBeenCalledTimes(1);
+    expect(sendSoftwareConfigMsgId).toHaveBeenCalledWith({
+      msgId: 'search',
+      mqttData: { discoveredCameras: [], discoveryFailed: true },
+    });
+    expect(error).toHaveBeenCalledWith(expect.any(String), scanError);
+  });
 });

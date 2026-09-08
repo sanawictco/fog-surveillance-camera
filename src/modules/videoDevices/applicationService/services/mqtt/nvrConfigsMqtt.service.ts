@@ -98,7 +98,22 @@ export class NvrConfigsMqttService {
   }
 
   async autoSearch() {
-    const cameras = await this.cameraDiscoveryService.discover();
+    let cameras: DiscoveredCamera[];
+    try {
+      cameras = await this.cameraDiscoveryService.discover();
+    } catch (err) {
+      this.serviceProvider.logger.error(
+        'auto search: camera discovery failed; acking empty inventory so cloud is not left waiting',
+        err instanceof Error ? err : new Error(String(err)),
+      );
+      await this.videoDevicesCloudCommunicationService.sendSoftwareConfigMsgId(
+        {
+          msgId: NvrConfigs.SEARCH,
+          mqttData: { discoveredCameras: [], discoveryFailed: true },
+        },
+      );
+      return;
+    }
     await this.videoDevicesCloudCommunicationService.sendSoftwareConfigMsgId({
       msgId: NvrConfigs.SEARCH,
       mqttData: { discoveredCameras: cameras.map(toDiscoveredCameraDto) },

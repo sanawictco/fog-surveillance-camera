@@ -43,6 +43,7 @@ export abstract class BaseCloudCommunicationService {
       failedInactivatedCameraIds?: string[];
       failedDeletedCameraIds?: string[];
       discoveredCameras?: unknown[];
+      discoveryFailed?: boolean;
     };
   }): Promise<void> {
     const topic = this.getSoftwareConfigTopic();
