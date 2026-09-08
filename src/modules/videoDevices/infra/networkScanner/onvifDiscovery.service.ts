@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { createSocket } from 'node:dgram';
 import { randomUUID } from 'node:crypto';
+import { XMLParser } from 'fast-xml-parser';
 import { NetworkObservation } from './networkScanner.types';
 import { assertIpv4 } from './cidr';
 
@@ -37,21 +38,16 @@ export class OnvifDiscoveryService {
       signal?.addEventListener('abort', onAbort, { once: true });
       socket.once('error', finish);
       socket.on('message', (message) => {
-        const matches = message
-          .toString('utf8')
-          .matchAll(/https?:\/\/(\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?\//g);
-        for (const match of matches) {
-          let ipAddress: string;
-          try {
-            ipAddress = assertIpv4(match[1] ?? '');
-          } catch {
-            continue;
-          }
-          observations.set(ipAddress, {
-            ipAddress,
-            interfaceName,
-            evidence: 'onvif',
-          });
+        for (const observation of parseProbeMatches(
+          message.toString('utf8'),
+          interfaceName,
+        )) {
+          // Key by endpoint reference so two devices sharing one IP are both
+          // kept — that is the only channel that sees an address conflict.
+          observations.set(
+            observation.endpointReference ?? observation.ipAddress,
+            observation,
+          );
         }
       });
       socket.bind(0, hostAddress, () => {
@@ -71,4 +67,76 @@ export class OnvifDiscoveryService {
 
 function buildProbe(id: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?><e:Envelope xmlns:e="http://www.w3.org/2003/05/soap-envelope" xmlns:w="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:d="http://schemas.xmlsoap.org/ws/2005/04/discovery" xmlns:dn="http://www.onvif.org/ver10/network/wsdl"><e:Header><w:MessageID>uuid:${id}</w:MessageID><w:To e:mustUnderstand="true">urn:schemas-xmlsoap-org:ws:2005:04:discovery</w:To><w:Action e:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</w:Action></e:Header><e:Body><d:Probe><d:Types>dn:NetworkVideoTransmitter</d:Types></d:Probe></e:Body></e:Envelope>`;
+}
+
+const probeParser = new XMLParser({
+  removeNSPrefix: true,
+  ignoreAttributes: false,
+  attributeNamePrefix: '',
+  parseTagValue: false,
+});
+
+export function parseProbeMatches(
+  xml: string,
+  interfaceName: string,
+): NetworkObservation[] {
+  let parsed: Record<string, any>;
+  try {
+    parsed = probeParser.parse(xml) as Record<string, any>;
+  } catch {
+    return [];
+  }
+  const matches = parsed?.Envelope?.Body?.ProbeMatches?.ProbeMatch;
+  if (!matches) return [];
+  const observations: NetworkObservation[] = [];
+  for (const match of Array.isArray(matches) ? matches : [matches]) {
+    const xaddr = firstHttpXaddr(match?.XAddrs);
+    if (!xaddr) continue;
+    let ipAddress: string;
+    try {
+      ipAddress = assertIpv4(new URL(xaddr).hostname);
+    } catch {
+      continue;
+    }
+    const scopes =
+      typeof match?.Scopes === 'string'
+        ? match.Scopes.split(/\s+/).filter(Boolean)
+        : undefined;
+    const endpointReference = match?.EndpointReference?.Address;
+    observations.push({
+      ipAddress,
+      interfaceName,
+      evidence: 'onvif',
+      ...(typeof endpointReference === 'string' ? { endpointReference } : {}),
+      onvifXaddr: xaddr,
+      ...(scopes?.length ? { scopes } : {}),
+    });
+  }
+  return observations;
+}
+
+export function nameFromScopes(scopes: string[] | undefined): string | undefined {
+  const scope = scopes?.find((entry) => entry.includes('/name/'));
+  if (!scope) return undefined;
+  const value = scope.slice(scope.indexOf('/name/') + '/name/'.length);
+  try {
+    return decodeURIComponent(value) || undefined;
+  } catch {
+    return value || undefined;
+  }
+}
+
+function firstHttpXaddr(xaddrs: unknown): string | undefined {
+  if (typeof xaddrs !== 'string') return undefined;
+  for (const candidate of xaddrs.split(/\s+/).filter(Boolean)) {
+    if (!/^https?:\/\//i.test(candidate)) continue;
+    try {
+      // IPv6 literals and hostnames are skipped: this pipeline is IPv4-only.
+      assertIpv4(new URL(candidate).hostname);
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+  return undefined;
 }
