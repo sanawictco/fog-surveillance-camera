@@ -17,6 +17,9 @@ services:
       - /tmp:size=64m,mode=1777
     volumes:
       - /fog_shared_backups:/fog_shared_backups
+      # Discovery's dnsmasq lease channel reads this file; read-only bind
+      # mount so the container can see leases without write access.
+      - /var/lib/misc/dnsmasq.leases:/var/lib/misc/dnsmasq.leases:ro
     env_file:
       - ../../.env.production
     environment:
