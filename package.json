@@ -44,6 +44,7 @@
     "cross-env": "^10.1.0",
     "dockerode": "^5.0.1",
     "env-var": "^7.5.0",
+    "fast-xml-parser": "5.2.5",
     "helmet": "^8.3.0",
     "ioredis": "^6.0.0",
     "jalali-moment": "^3.3.11",
