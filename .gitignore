@@ -54,3 +54,9 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# git worktrees for isolated feature work
+.worktrees
+
+# subagent-driven-development scratch workspace (ledger, briefs, review packages)
+.superpowers
