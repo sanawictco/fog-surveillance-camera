@@ -75,5 +75,27 @@ const AppConfig = () => ({
     authEnabled: env.get('WS_AUTH_ENABLED').default('true').asBool(),
     allowedOrigins: env.get('WS_ALLOWED_ORIGINS').default('').asArray(','),
   },
+  networkScanner: {
+    dnsmasqLeaseFile: env
+      .get('DNSMASQ_LEASE_FILE')
+      .default('/var/lib/misc/dnsmasq.leases')
+      .asString(),
+    nmapExecutable: env
+      .get('NMAP_EXECUTABLE')
+      .default('/usr/bin/nmap')
+      .asString(),
+    processTimeoutMs: env
+      .get('SCANNER_PROCESS_TIMEOUT_MS')
+      .default('120000')
+      .asIntPositive(),
+    maxOutputBytes: env
+      .get('SCANNER_MAX_OUTPUT_BYTES')
+      .default('10485760')
+      .asIntPositive(),
+    maxHosts: env
+      .get('SCANNER_MAX_HOSTS')
+      .default('256')
+      .asIntPositive(),
+  },
 });
 export default AppConfig;

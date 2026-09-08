@@ -57,6 +57,7 @@ import { ScannerPreflightService } from './infra/networkScanner/scannerPreflight
 import { NvrConfigsMqttService } from './applicationService/services/mqtt/nvrConfigsMqtt.service';
 import { CameraConfigsMqttService } from './applicationService/services/mqtt/cameraConfigsMqtt.service';
 import { PhysicalEthernetProvider } from './infra/networkScanner/physicalEthernet.provider';
+import { DnsmasqLeaseProvider } from './infra/networkScanner/dnsmasqLease.provider';
 import { VideoDeviceConfigsMqttController } from './controllers/videoDeviceConfigs.mqtt.controller';
 import { VideoDevicesCloudCommunicationService } from './applicationService/services/videoDevicesCloudCommunication.service.ts';
 import { TDengineModule } from 'src/extensions/tdengine/tdengine.module';
@@ -115,6 +116,7 @@ const services: Provider[] = [
   NetworkProcessRunner,
   NmapXmlParser,
   PassiveNeighborService,
+  DnsmasqLeaseProvider,
   OnvifDiscoveryService,
   CameraNetworkScannerService,
   ScannerPreflightService,
