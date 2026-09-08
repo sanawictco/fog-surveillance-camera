@@ -57,6 +57,9 @@ describe('mergeObservations', () => {
     ]);
     expect(merged).toHaveLength(2);
     expect(merged[0].conflictEndpointReferences).toEqual(['urn:uuid:a', 'urn:uuid:b']);
+    expect(merged[1].conflictEndpointReferences).toEqual(['urn:uuid:a', 'urn:uuid:b']);
+    expect(merged[0].conflictMacAddresses).toBeUndefined();
+    expect(merged[1].conflictMacAddresses).toBeUndefined();
   });
 
   it('joins an ONVIF observation to the MAC seen at the same address', () => {
@@ -75,6 +78,19 @@ describe('mergeObservations', () => {
     expect(merged[0].macAddress).toBe('AA:BB:CC:DD:EE:FF');
     expect(merged[0].onvifXaddr).toBe('http://192.168.10.51/onvif/device_service');
     expect(merged[0].scopes).toEqual(['onvif://www.onvif.org/name/Lobby']);
+  });
+
+  it('keeps a MAC observation and colliding ONVIF observations separate instead of dropping one', () => {
+    const merged = mergeObservations([
+      { ...base, ipAddress: '192.168.1.21', macAddress: 'AA:BB:CC:DD:EE:FF', evidence: 'neighbor' },
+      { ...base, ipAddress: '192.168.1.21', evidence: 'onvif', endpointReference: 'urn:uuid:a' },
+      { ...base, ipAddress: '192.168.1.21', evidence: 'onvif', endpointReference: 'urn:uuid:b' },
+    ]);
+    expect(merged).toHaveLength(3);
+    for (const entry of merged) {
+      expect(entry.conflictMacAddresses).toEqual(['AA:BB:CC:DD:EE:FF']);
+      expect(entry.conflictEndpointReferences).toEqual(['urn:uuid:a', 'urn:uuid:b']);
+    }
   });
 
   it('marks one MAC seen at several addresses as multi-homed and prefers the lease', () => {

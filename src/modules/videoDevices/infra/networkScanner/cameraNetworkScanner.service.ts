@@ -142,15 +142,26 @@ export function mergeObservations(
 }
 
 // A WS-Discovery observation carries no MAC, so it lands under its endpoint
-// reference. When exactly one MAC-keyed device holds that address, they are the
-// same device and the ONVIF details belong to it.
+// reference. When exactly one MAC-keyed device holds that address AND it is
+// the only ONVIF-only entry there, they are the same device and the ONVIF
+// details belong to it. If a second ONVIF-only entry also sits at that
+// address, the association is ambiguous — joining anyway would silently
+// merge two distinct cameras into one and drop the other with no trace, so
+// both conditions must hold or every entry at the address is left alone for
+// markAddressConflicts to flag instead.
 function joinOnvifOnlyEntries(merged: MergedObservation[]): void {
   for (const entry of [...merged]) {
     if (entry.macAddress || !entry.endpointReference) continue;
     const withMac = merged.filter(
       (other) => other.ipAddress === entry.ipAddress && other.macAddress,
     );
-    if (withMac.length !== 1) continue;
+    const onvifOnly = merged.filter(
+      (other) =>
+        other.ipAddress === entry.ipAddress &&
+        !other.macAddress &&
+        other.endpointReference,
+    );
+    if (withMac.length !== 1 || onvifOnly.length !== 1) continue;
     const target = withMac[0]!;
     target.endpointReference ??= entry.endpointReference;
     target.onvifXaddr ??= entry.onvifXaddr;
