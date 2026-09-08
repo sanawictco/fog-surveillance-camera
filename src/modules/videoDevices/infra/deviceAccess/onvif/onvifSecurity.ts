@@ -46,13 +46,15 @@ export function buildSecurityHeader(
     (options.now ?? Date.now()) + (options.deviceTimeOffsetMs ?? 0),
   ).toISOString();
   const digest = passwordDigest(nonce, created, credentials.password);
+  // Note: the emitted header must be embedded in a SOAP envelope that binds the
+  // s: prefix to http://www.w3.org/2003/05/soap-envelope.
   return (
     `<Security s:mustUnderstand="1" xmlns="${WSSE}" xmlns:u="${WSU}">` +
     `<UsernameToken>` +
     `<Username>${escapeXml(credentials.username)}</Username>` +
     `<Password Type="${PASSWORD_DIGEST}">${digest}</Password>` +
     `<Nonce EncodingType="${BASE64_BINARY}">${nonce.toString('base64')}</Nonce>` +
-    `<Created>${created}</Created>` +
+    `<u:Created>${created}</u:Created>` +
     `</UsernameToken></Security>`
   );
 }
