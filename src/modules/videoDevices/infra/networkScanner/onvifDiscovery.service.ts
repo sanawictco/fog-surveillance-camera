@@ -76,6 +76,15 @@ const probeParser = new XMLParser({
   parseTagValue: false,
 });
 
+function elementText(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object' && '#text' in value) {
+    const text = (value as Record<string, unknown>)['#text'];
+    return typeof text === 'string' ? text : undefined;
+  }
+  return undefined;
+}
+
 export function parseProbeMatches(
   xml: string,
   interfaceName: string,
@@ -98,16 +107,16 @@ export function parseProbeMatches(
     } catch {
       continue;
     }
-    const scopes =
-      typeof match?.Scopes === 'string'
-        ? match.Scopes.split(/\s+/).filter(Boolean)
-        : undefined;
-    const endpointReference = match?.EndpointReference?.Address;
+    const scopesText = elementText(match?.Scopes);
+    const scopes = scopesText
+      ? scopesText.split(/\s+/).filter(Boolean)
+      : undefined;
+    const endpointReference = elementText(match?.EndpointReference?.Address);
     observations.push({
       ipAddress,
       interfaceName,
       evidence: 'onvif',
-      ...(typeof endpointReference === 'string' ? { endpointReference } : {}),
+      ...(endpointReference ? { endpointReference } : {}),
       onvifXaddr: xaddr,
       ...(scopes?.length ? { scopes } : {}),
     });
@@ -127,8 +136,9 @@ export function nameFromScopes(scopes: string[] | undefined): string | undefined
 }
 
 function firstHttpXaddr(xaddrs: unknown): string | undefined {
-  if (typeof xaddrs !== 'string') return undefined;
-  for (const candidate of xaddrs.split(/\s+/).filter(Boolean)) {
+  const xaddrsText = elementText(xaddrs);
+  if (!xaddrsText) return undefined;
+  for (const candidate of xaddrsText.split(/\s+/).filter(Boolean)) {
     if (!/^https?:\/\//i.test(candidate)) continue;
     try {
       // IPv6 literals and hostnames are skipped: this pipeline is IPv4-only.
