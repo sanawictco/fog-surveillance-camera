@@ -94,4 +94,36 @@ describe('OnvifSoapClient', () => {
       new OnvifSoapClient().call(baseUrl, '<GetDeviceInformation/>'),
     ).rejects.toThrow('not a SOAP envelope');
   });
+
+  it('rejects truncated/malformed XML with the classified error, not a raw parser error', async () => {
+    handler = () => ({
+      status: 200,
+      // Unclosed tags: a realistic shape for a connection dropped mid-response
+      // by an embedded camera HTTP stack.
+      body:
+        '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope">' +
+        '<SOAP-ENV:Body><tds:GetDeviceInformationResponse>',
+    });
+    await expect(
+      new OnvifSoapClient().call(baseUrl, '<GetDeviceInformation/>'),
+    ).rejects.toThrow('not a SOAP envelope');
+  });
+
+  it('extracts the fault reason when SOAP 1.2 carries multiple Reason/Text elements', async () => {
+    handler = () => ({
+      status: 400,
+      body: soapResponse(
+        '<SOAP-ENV:Fault xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope">' +
+          '<SOAP-ENV:Reason>' +
+          '<SOAP-ENV:Text xml:lang="en">Sender not authorized</SOAP-ENV:Text>' +
+          '<SOAP-ENV:Text xml:lang="fr">Expéditeur non autorisé</SOAP-ENV:Text>' +
+          '</SOAP-ENV:Reason>' +
+          '</SOAP-ENV:Fault>',
+      ),
+    });
+    await expect(
+      new OnvifSoapClient().call(baseUrl, '<GetDeviceInformation/>'),
+    ).rejects.toThrow('Sender not authorized');
+  });
 });

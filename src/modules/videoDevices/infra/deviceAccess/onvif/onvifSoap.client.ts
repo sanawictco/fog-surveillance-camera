@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
-import { XMLParser } from 'fast-xml-parser';
+import { XMLParser, XMLValidator } from 'fast-xml-parser';
 import AppConfig from 'configs/app.config';
 import { buildSecurityHeader, OnvifCredentials } from './onvifSecurity';
 
@@ -52,7 +52,17 @@ export class OnvifSoapClient {
       maxRedirects: 0,
     });
 
-    const parsed = this.parser.parse(response.data as string) as Record<string, any>;
+    const raw = response.data as string;
+    const validation = XMLValidator.validate(raw);
+    if (validation !== true) {
+      throw new Error(`ONVIF response from ${endpoint} is not a SOAP envelope`);
+    }
+    let parsed: Record<string, any>;
+    try {
+      parsed = this.parser.parse(raw) as Record<string, any>;
+    } catch {
+      throw new Error(`ONVIF response from ${endpoint} is not a SOAP envelope`);
+    }
     const body = parsed?.Envelope?.Body;
     if (!body || typeof body !== 'object') {
       throw new Error(`ONVIF response from ${endpoint} is not a SOAP envelope`);
@@ -66,9 +76,13 @@ export class OnvifSoapClient {
 
 function faultReason(fault: Record<string, any>): string {
   const text = fault?.Reason?.Text;
-  if (typeof text === 'string' && text) return text;
-  if (typeof text === 'object' && typeof text?.['#text'] === 'string') {
-    return text['#text'];
+  // SOAP 1.2 allows multiple Reason/Text elements (one per xml:lang); when
+  // more than one is present, fast-xml-parser yields an array. Use the
+  // first entry's text rather than discarding the reason entirely.
+  const first = Array.isArray(text) ? text[0] : text;
+  if (typeof first === 'string' && first) return first;
+  if (typeof first === 'object' && typeof first?.['#text'] === 'string') {
+    return first['#text'];
   }
   if (typeof fault?.faultstring === 'string') return fault.faultstring;
   return 'unspecified ONVIF fault';
