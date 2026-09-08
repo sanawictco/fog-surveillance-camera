@@ -1,4 +1,12 @@
 import * as env from 'env-var';
+
+const validateTopicSegment = (value: string): string => {
+  if (!value || /[\0-\x1F/+#]/.test(value)) {
+    throw new Error('TENANT_ID must be a safe MQTT topic segment');
+  }
+  return value;
+};
+
 const AppConfig = () => ({
   environment: env.get('NODE_ENV').required().asString(),
   port: env.get('NODE_PORT').required().asPortNumber(),
@@ -12,6 +20,7 @@ const AppConfig = () => ({
   nvrSerialNumber: env.get('NVR_SERIAL_NUMBER').required().asString(),
   nvrMacAddress: env.get('NVR_MAC_ADDRESS').required().asIntPositive(),
   nvrId: env.get('NVR_ID').required().asString(),
+  tenantId: validateTopicSegment(env.get('TENANT_ID').required().asString()),
   mongodb: {
     url: `mongodb://${env.get('MONGO_DB_HOST').required().asString()}:${env.get('MONGO_DB_PORT').required().asPortNumber()}/${env.get('MONGO_DB_NAME').asString()}`,
   },
