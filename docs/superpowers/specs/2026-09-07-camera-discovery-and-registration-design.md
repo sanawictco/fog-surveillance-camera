@@ -625,13 +625,14 @@ interface DiscoveredCameraDto {
   firmwareVersion?: string;
   serialNumber?: string;
   hardwareId?: string;
-  onvifPort?: number;
+  onvifXaddr?: string;              // full ONVIF service URL
   suggestedName?: string;
   approvedProfile?: boolean;       // meets §4
   hasPtz?: boolean;
   hasAudio?: boolean;
   streams?: StreamsProps;
   conflictMacAddresses?: string[];
+  conflictEndpointReferences?: string[];
 }
 ```
 
