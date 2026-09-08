@@ -1,14 +1,21 @@
 import { OnvifCapabilityProbe } from '../../../../applicationService/services/discovery/onvifCapabilityProbe.service';
 import { MergedObservation } from '../../../../infra/networkScanner/networkScanner.types';
 
+// A `let` mutated by the empty-credentials test below and restored afterwards,
+// so that test can exercise the shipped production default
+// (`ONVIF_DEFAULT_CREDENTIALS` defaults to `'[]'`) without a second mock setup.
+let mockDefaultCredentials: { username: string; password: string }[] = [
+  { username: 'admin', password: 'wrong' },
+  { username: 'admin', password: 'right' },
+];
+
 jest.mock('configs/app.config', () => ({
   __esModule: true,
   default: () => ({
     onvif: {
-      defaultCredentials: [
-        { username: 'admin', password: 'wrong' },
-        { username: 'admin', password: 'right' },
-      ],
+      get defaultCredentials() {
+        return mockDefaultCredentials;
+      },
     },
   }),
 }));
@@ -66,12 +73,20 @@ describe('OnvifCapabilityProbe', () => {
   });
 
   it('tries each credential in order and records success', async () => {
-    const getDeviceInformation = jest
-      .fn()
-      .mockRejectedValueOnce(new Error('not authorized'))
-      .mockResolvedValueOnce({ manufacturer: 'ACME', firmwareVersion: 'V5.7.3' });
+    // Keyed off the credential ARGUMENT, not call number: an implementation
+    // that tried the configured candidates in a different order would still
+    // see one reject and one resolve, so keying on call number alone cannot
+    // distinguish "tried in configured order" from "tried in any order".
+    const getDeviceInformation = jest.fn().mockImplementation((_endpoint, credentials) => {
+      if (credentials.password === 'wrong') {
+        return Promise.reject(new Error('not authorized'));
+      }
+      return Promise.resolve({ manufacturer: 'ACME', firmwareVersion: 'V5.7.3' });
+    });
     const result = await build({ device: { getDeviceInformation } }).probe(observation);
     expect(getDeviceInformation).toHaveBeenCalledTimes(2);
+    expect(getDeviceInformation.mock.calls[0]?.[1]?.password).toBe('wrong');
+    expect(getDeviceInformation.mock.calls[1]?.[1]?.password).toBe('right');
     expect(result.status).toBe('ONVIF_READY');
     expect(result.firmwareVersion).toBe('V5.7.3');
   });
@@ -81,6 +96,24 @@ describe('OnvifCapabilityProbe', () => {
     const result = await build({ device: { getDeviceInformation } }).probe(observation);
     expect(result.status).toBe('AUTH_FAILED');
     expect(result.macAddress).toBe('AA:BB:CC:DD:EE:FF');
+  });
+
+  it('reports AUTH_FAILED without calling getDeviceInformation when no credentials are configured', async () => {
+    // ONVIF_DEFAULT_CREDENTIALS defaults to '[]' in production: a stock
+    // deployment has no candidates at all. This must not be misread as
+    // ONVIF_READY just because there was nothing to fail.
+    mockDefaultCredentials = [];
+    try {
+      const getDeviceInformation = jest.fn();
+      const result = await build({ device: { getDeviceInformation } }).probe(observation);
+      expect(result.status).toBe('AUTH_FAILED');
+      expect(getDeviceInformation).not.toHaveBeenCalled();
+    } finally {
+      mockDefaultCredentials = [
+        { username: 'admin', password: 'wrong' },
+        { username: 'admin', password: 'right' },
+      ];
+    }
   });
 
   it('derives name, PTZ, audio and streams from the media profiles', async () => {
@@ -111,6 +144,14 @@ describe('OnvifCapabilityProbe', () => {
   it('still returns a record when the media service fails', async () => {
     const media = jest.fn().mockRejectedValue(new Error('media unavailable'));
     const result = await build({ media }).probe(observation);
+    expect(result.status).toBe('ONVIF_READY');
+    expect(result.streams).toBeUndefined();
+    expect(result.manufacturer).toBe('ACME');
+  });
+
+  it('still returns a record when getServices fails', async () => {
+    const getServices = jest.fn().mockRejectedValue(new Error('services unavailable'));
+    const result = await build({ device: { getServices } }).probe(observation);
     expect(result.status).toBe('ONVIF_READY');
     expect(result.streams).toBeUndefined();
     expect(result.manufacturer).toBe('ACME');

@@ -26,7 +26,8 @@ export class CameraDiscoveryService {
         // must not cost the whole inventory.
         this.serviceProvider.logger.error(
           'camera discovery: probe failed unexpectedly',
-          { ipAddress: observation.ipAddress, error },
+          error,
+          { ipAddress: observation.ipAddress },
         );
       }
     }
