@@ -1,5 +1,6 @@
 import {
   OnvifMediaService,
+  stripCredentials,
   toStreams,
 } from '../../../../infra/deviceAccess/onvif/onvifMedia.service';
 
@@ -124,5 +125,55 @@ describe('toStreams', () => {
 
   it('returns undefined when no profile has a stream URI', () => {
     expect(toStreams([{ ...main, streamUri: undefined }])).toBeUndefined();
+  });
+
+  it('treats a profile with a non-numeric resolution dimension as area 0, deterministically, regardless of its position', () => {
+    // Width/Height arrive as strings from ONVIF and are coerced with Number();
+    // a camera reporting an unparsable Width yields NaN here. Before the fix,
+    // NaN reaching the sort comparator made the outcome depend on this
+    // profile's position in the input array. After the fix it always
+    // degrades to the same area-0 path as "no resolution at all".
+    const malformed = {
+      token: 'malformed',
+      resolution: { width: Number('not-a-number'), height: 1080 },
+      hasAudio: false,
+      hasPtz: false,
+      streamUri: 'rtsp://cam/malformed',
+    };
+    for (const order of [
+      [main, malformed, sub],
+      [malformed, sub, main],
+      [sub, main, malformed],
+    ]) {
+      const streams = toStreams(order);
+      // The true largest well-formed profile always wins record, no matter
+      // where the malformed profile sits in the input.
+      expect(streams?.recordStream.token).toBe('main');
+      // area-0 (from the malformed dimension) is, by design, eligible to win
+      // the live role -- the same rule that lets a profile with no
+      // resolution at all win live (see the comment on area()) -- so it
+      // does here, deterministically, in every ordering.
+      expect(streams?.liveStream.token).toBe('malformed');
+    }
+  });
+});
+
+describe('stripCredentials', () => {
+  it('strips the full credential segment even when the password itself contains "@"', () => {
+    const result = stripCredentials(
+      'rtsp://admin:P@ss123@192.168.1.1:554/Streaming/Channels/101',
+    );
+    expect(result).toBe('rtsp://192.168.1.1:554/Streaming/Channels/101');
+    // No fragment of the password should survive anywhere in the result.
+    expect(result).not.toContain('admin');
+    expect(result).not.toContain('P@ss123');
+    expect(result).not.toContain('ss123');
+    expect(result).not.toContain('@');
+  });
+
+  it('leaves a path segment containing "@" after the host untouched', () => {
+    expect(stripCredentials('rtsp://192.168.1.1:554/path@with@at')).toBe(
+      'rtsp://192.168.1.1:554/path@with@at',
+    );
   });
 });
