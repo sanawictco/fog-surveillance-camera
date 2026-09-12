@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { Agent as HttpAgent } from 'node:http';
+import { Agent as HttpsAgent } from 'node:https';
 import axios from 'axios';
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 import AppConfig from 'configs/app.config';
@@ -15,6 +17,15 @@ export class OnvifFaultError extends Error {
 export class OnvifSoapClient {
   // removeNSPrefix is mandatory: vendors vary SOAP prefixes freely, so every
   // lookup in this module matches on local name only.
+  // Node's global agent has keepAlive: true by default since Node 19. ONVIF
+  // devices routinely close the TCP connection after answering, so a pooled
+  // socket is already dead when the next call reuses it and the request fails
+  // with "socket hang up". Observed on an IPC6515F-K: every SECOND request
+  // failed, and the credential loop misread that as a wrong password. A
+  // `Connection: close` request header does not prevent it — only not pooling.
+  private readonly httpAgent = new HttpAgent({ keepAlive: false });
+  private readonly httpsAgent = new HttpsAgent({ keepAlive: false });
+
   private readonly parser = new XMLParser({
     removeNSPrefix: true,
     ignoreAttributes: false,
@@ -50,6 +61,8 @@ export class OnvifSoapClient {
       // so every status is accepted here and classified below.
       validateStatus: () => true,
       maxRedirects: 0,
+      httpAgent: this.httpAgent,
+      httpsAgent: this.httpsAgent,
     });
 
     const raw = response.data as string;

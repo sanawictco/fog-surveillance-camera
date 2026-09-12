@@ -1,5 +1,6 @@
 import { OnvifCapabilityProbe } from '../../../../applicationService/services/discovery/onvifCapabilityProbe.service';
 import { MergedObservation } from '../../../../infra/networkScanner/networkScanner.types';
+import { OnvifFaultError } from '../../../../infra/deviceAccess/onvif/onvifSoap.client';
 
 // A `let` mutated by the empty-credentials test below and restored afterwards,
 // so that test can exercise the shipped production default
@@ -91,11 +92,40 @@ describe('OnvifCapabilityProbe', () => {
     expect(result.firmwareVersion).toBe('V5.7.3');
   });
 
-  it('reports AUTH_FAILED when no credential works', async () => {
-    const getDeviceInformation = jest.fn().mockRejectedValue(new Error('not authorized'));
+  it('reports AUTH_FAILED when every credential is genuinely rejected', async () => {
+    // A SOAP fault is the device saying "no". Only that is evidence about the
+    // credential, so only that may produce AUTH_FAILED.
+    const getDeviceInformation = jest
+      .fn()
+      .mockRejectedValue(new OnvifFaultError('Sender not Authorized'));
     const result = await build({ device: { getDeviceInformation } }).probe(observation);
     expect(result.status).toBe('AUTH_FAILED');
     expect(result.macAddress).toBe('AA:BB:CC:DD:EE:FF');
+  });
+
+  it('does not report AUTH_FAILED when an attempt fails for a transport reason', async () => {
+    // AUTH_FAILED is the status that dispatches a human with a reset button, so
+    // it must not be produced by a socket hang up, a timeout, or an unparseable
+    // response — none of which are evidence about the password. Observed on a
+    // real IPC6515F-K: connection reuse killed every second request and the
+    // camera was reported AUTH_FAILED with correct credentials configured.
+    const getDeviceInformation = jest
+      .fn()
+      .mockRejectedValue(new Error('socket hang up'));
+    const result = await build({ device: { getDeviceInformation } }).probe(observation);
+    expect(result.status).toBe('ONVIF_UNREACHABLE');
+  });
+
+  it('reports AUTH_FAILED only when no attempt failed for a transport reason', async () => {
+    // One transport failure among genuine rejections still taints the verdict:
+    // the credential that hung up was never actually tested.
+    const getDeviceInformation = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('socket hang up'))
+      .mockRejectedValueOnce(new OnvifFaultError('Sender not Authorized'));
+    const result = await build({ device: { getDeviceInformation } }).probe(observation);
+    expect(getDeviceInformation).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe('ONVIF_UNREACHABLE');
   });
 
   it('reports AUTH_FAILED without calling getDeviceInformation when no credentials are configured', async () => {

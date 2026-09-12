@@ -21,6 +21,7 @@ function soapResponse(innerXml: string): string {
 let server: Server;
 let baseUrl = '';
 let lastBody = '';
+let connectionCount = 0;
 let handler: () => { status: number; body: string };
 
 beforeAll(async () => {
@@ -34,6 +35,7 @@ beforeAll(async () => {
       res.end(body);
     });
   });
+  server.on('connection', () => { connectionCount += 1; });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}/onvif/device_service`;
 });
@@ -54,6 +56,23 @@ describe('OnvifSoapClient', () => {
     });
     const body = await new OnvifSoapClient().call(baseUrl, '<GetDeviceInformation/>');
     expect(body.GetDeviceInformationResponse.Manufacturer).toBe('ACME');
+  });
+
+  it('opens a new connection per call instead of reusing a pooled one', async () => {
+    // Node's global HTTP agent has keepAlive: true by default since Node 19.
+    // Real ONVIF devices routinely close the TCP connection after answering,
+    // so a pooled socket is dead by the time the next call reuses it and the
+    // request fails with "socket hang up". Observed on an IPC6515F-K, where it
+    // made every SECOND request fail — which the credential loop then misread
+    // as a wrong password. One connection per call is the invariant that
+    // prevents it; a `Connection: close` request header does NOT.
+    handler = () => ({ status: 200, body: soapResponse('<Ok/>') });
+    const client = new OnvifSoapClient();
+    connectionCount = 0;
+    await client.call(baseUrl, '<GetSystemDateAndTime/>');
+    await client.call(baseUrl, '<GetSystemDateAndTime/>');
+    await client.call(baseUrl, '<GetSystemDateAndTime/>');
+    expect(connectionCount).toBe(3);
   });
 
   it('omits the Security header when no credentials are given', async () => {

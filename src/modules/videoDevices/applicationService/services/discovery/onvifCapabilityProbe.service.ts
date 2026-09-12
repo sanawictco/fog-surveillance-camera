@@ -7,6 +7,7 @@ import {
   toStreams,
 } from '../../../infra/deviceAccess/onvif/onvifMedia.service';
 import { OnvifCredentials } from '../../../infra/deviceAccess/onvif/onvifSecurity';
+import { OnvifFaultError } from '../../../infra/deviceAccess/onvif/onvifSoap.client';
 import {
   OnvifDeviceInformation,
   OnvifEndpoint,
@@ -42,7 +43,14 @@ export class OnvifCapabilityProbe {
     if (!endpoint) return { ...base, status: 'ONVIF_UNREACHABLE' };
 
     const authenticated = await this.authenticate(endpoint);
-    if (!authenticated) return { ...base, status: 'AUTH_FAILED' };
+    if (!authenticated.credentials || !authenticated.information) {
+      // A transport failure means some credential was never actually tested, so
+      // "every credential was rejected" is not a claim this probe can make.
+      return {
+        ...base,
+        status: authenticated.transportFailed ? 'ONVIF_UNREACHABLE' : 'AUTH_FAILED',
+      };
+    }
 
     const { credentials, information } = authenticated;
     const record: DiscoveredCamera = {
@@ -82,21 +90,27 @@ export class OnvifCapabilityProbe {
     return record;
   }
 
-  private async authenticate(
-    endpoint: OnvifEndpoint,
-  ): Promise<
-    { credentials: OnvifCredentials; information: OnvifDeviceInformation } | undefined
-  > {
+  private async authenticate(endpoint: OnvifEndpoint): Promise<{
+    credentials?: OnvifCredentials;
+    information?: OnvifDeviceInformation;
+    transportFailed: boolean;
+  }> {
+    let transportFailed = false;
     // Phase 1 stand-in for the phase 3 product catalog. Same interface, different source.
     for (const credentials of AppConfig().onvif.defaultCredentials) {
       try {
         const information = await this.device.getDeviceInformation(endpoint, credentials);
-        return { credentials, information };
-      } catch {
-        // Wrong credentials for this model; try the next candidate.
+        return { credentials, information, transportFailed };
+      } catch (error) {
+        // A SOAP fault is the device saying "no": that credential is wrong, so
+        // move on. Anything else — socket hang up, timeout, unparseable reply —
+        // means the conversation never completed and says nothing about the
+        // password. AUTH_FAILED is the status that dispatches a human with a
+        // reset button, so it must not be produced by a network problem.
+        if (!(error instanceof OnvifFaultError)) transportFailed = true;
       }
     }
-    return undefined;
+    return { transportFailed };
   }
 
   private baseRecord(observation: MergedObservation): DiscoveredCamera {
