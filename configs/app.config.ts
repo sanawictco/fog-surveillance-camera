@@ -18,7 +18,6 @@ const AppConfig = () => ({
     .asString(),
   nvrAccessToken: env.get('NVR_ACCESS_TOKEN').required().asString(),
   nvrSerialNumber: env.get('NVR_SERIAL_NUMBER').required().asString(),
-  nvrMacAddress: env.get('NVR_MAC_ADDRESS').required().asIntPositive(),
   nvrId: env.get('NVR_ID').required().asString(),
   tenantId: validateTopicSegment(env.get('TENANT_ID').required().asString()),
   mongodb: {
@@ -101,10 +100,7 @@ const AppConfig = () => ({
       .get('SCANNER_MAX_OUTPUT_BYTES')
       .default('10485760')
       .asIntPositive(),
-    maxHosts: env
-      .get('SCANNER_MAX_HOSTS')
-      .default('256')
-      .asIntPositive(),
+    maxHosts: env.get('SCANNER_MAX_HOSTS').default('256').asIntPositive(),
   },
   onvif: {
     requestTimeoutMs: env

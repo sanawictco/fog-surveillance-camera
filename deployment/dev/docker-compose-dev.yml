@@ -1,0 +1,103 @@
+version: '3.8'
+services:
+  tdengine:
+    image: registry.sanawict.ir/library/tdengine:3.3.6.3
+    container_name: tdengine-fog
+    restart: unless-stopped
+    privileged: true
+    environment:
+      - TZ=Asia/Tehran
+      - TAOS_FQDN=tdengine
+    ports:
+      - '60410:6041'
+      - '60200:6020'
+      - '60300:6030'
+      - '60350:6035'
+    volumes:
+      - fog-tdengine-data:/var/lib/taos
+      - /fog_shared_backups:/fog_shared_backups
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+    healthcheck:
+      test: ['CMD-SHELL', "taos -s 'show databases;' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  mongo:
+    container_name: mongo-fog
+    image: registry.sanawict.ir/library/mongo:8.0.8-zstd-curl
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_DATABASE=sanaw
+    # command: >
+    #   bash -c "
+    #   apt-get update &&
+    #   apt-get install -y --no-install-recommends zstd curl &&
+    #   exec docker-entrypoint.sh mongod
+    #   "
+    ports:
+      - '27018:27017'
+    #    network_mode: 'host'
+    volumes:
+      - fog-mongo-data:/data/db
+      - /fog_shared_backups:/fog_shared_backups
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 2G
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      tdengine:
+        condition: service_healthy
+
+  redis:
+    container_name: redis-fog
+    image: redis:6.2.7-alpine
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Tehran
+    ports:
+      - '6378:6379'
+    #    network_mode: 'host'
+    command:
+      [
+        'redis-server',
+        '--save',
+        '',
+        '--appendonly',
+        'no',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  fog-mongo-data:
+    name: fog-mongo-data
+    driver: local
+  fog-tdengine-data:
+    name: fog-tdengine-data
+    driver: local
