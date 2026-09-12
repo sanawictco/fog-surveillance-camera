@@ -19,11 +19,12 @@ repoRoot="$(cd -- "$scriptDir/../.." && pwd)"
 
 # ---------------------------------------------------------------------------
 # Verify prerequisite tools. In dev the backend runs on the HOST
-# (npm run start:dev), so the cloud-recovery tools (Path B) must be installed
-# locally — they are NOT in a container. Abort with install hints if any missing.
+# (npm run start:dev), so the cloud-recovery tools (Path B) and nmap — which the
+# camera scanner shells out to for its ARP sweep (design spec §10.1) — must be
+# installed locally; they are NOT in a container. Abort with hints if any missing.
 # ---------------------------------------------------------------------------
 echo "🔎 Verifying prerequisite packages..."
-required=(docker node npm tar zstd mongoexport mongosh taosdump)
+required=(docker node npm tar zstd mongoexport mongosh taosdump nmap)
 missing=()
 for cmd in "${required[@]}"; do
     if command -v "$cmd" >/dev/null 2>&1; then
@@ -52,6 +53,9 @@ if [ "${#missing[@]}" -gt 0 ]; then
 ❌ Missing prerequisites: ${missing[*]}
    Install them, then re-run this script:
      • tar / zstd ............ sudo apt-get install -y tar zstd
+     • nmap .................. sudo apt-get install -y nmap
+                               camera discovery shells out to it for the ARP sweep,
+                               and in dev the app runs on the HOST, not in a container
      • mongo tools + mongosh . add the MongoDB 8.0 apt repo, then:
          sudo apt-get install -y mongodb-database-tools mongodb-mongosh
       • taosdump .............. start the dev stack, then install the matching TDengine
